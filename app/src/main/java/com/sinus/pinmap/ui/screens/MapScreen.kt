@@ -43,12 +43,15 @@ fun MapScreen(
     val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
     val pinRepository = remember { PinRepository(database.pinDao()) }
+    val categoryRepository = remember { com.sinus.pinmap.data.repository.CategoryRepository(database.categoryDao()) }
     val viewModel: MapViewModel = viewModel { MapViewModel(pinRepository) }
 
     val pins by viewModel.pins.collectAsState()
     val selectedPin by viewModel.selectedPin.collectAsState()
+    val categories by categoryRepository.getAllCategories().collectAsState(initial = emptyList())
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showCreateCategoryDialog by remember { mutableStateOf(false) }
     var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
     var selectedAddress by remember { mutableStateOf("获取中...") }
 
@@ -126,25 +129,34 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
         }
     }
 
-    // 管理生命周期
+    // 管理生命周期 - 不使用DisposableEffect，避免销毁问题
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
+    LaunchedEffect(mapView) {
+        mapView.onCreate(null)
+        mapView.onResume()
+    }
+
+    LaunchedEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_RESUME -> {
+                    try {
+                        mapView.onResume()
+                    } catch (e: Exception) {
+                        // 忽略异常
+                    }
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    try {
+                        mapView.onPause()
+                    } catch (e: Exception) {
+                        // 忽略异常
+                    }
+                }
                 else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-
-        // 初始化
-        mapView.onCreate(null)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onDestroy()
-        }
     }
 
     val scope = rememberCoroutineScope()
@@ -262,8 +274,23 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
     // 监听 pins 变化，更新地图标记
     LaunchedEffect(pins) {
-        // TODO: 更新地图上的标记
-        // 需要清除旧标记并添加新标记
+        val aMap = mapView.map
+
+        // 清除所有标记
+        aMap.clear()
+
+        // 添加新标记
+        pins.forEach { pin ->
+            val markerOptions = MarkerOptions()
+                .position(LatLng(pin.latitude, pin.longitude))
+                .title(pin.title)
+                .snippet(pin.description ?: "")
+                .draggable(false)
+                .anchor(0.5f, 0.5f)
+
+            // 添加标记到地图
+            aMap.addMarker(markerOptions)
+        }
     }
 
     // 监听选中的标记
@@ -278,19 +305,44 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
         CreatePinDialog(
             location = selectedLocation!!,
             address = selectedAddress,
-            onConfirm = { title, description ->
+            categories = categories,
+            onConfirm = { title, description, categoryId ->
                 viewModel.createPin(
                     latitude = selectedLocation!!.latitude,
                     longitude = selectedLocation!!.longitude,
                     title = title,
-                    description = description.ifBlank { null }
+                    description = description.ifBlank { null },
+                    categoryId = categoryId
                 )
                 showCreateDialog = false
                 selectedLocation = null
             },
+            onCreateCategory = {
+                showCreateCategoryDialog = true
+            },
             onDismiss = {
                 showCreateDialog = false
                 selectedLocation = null
+            }
+        )
+    }
+
+    // 显示创建分类对话框
+    if (showCreateCategoryDialog) {
+        CreateCategoryDialog(
+            onConfirm = { name, color ->
+                scope.launch {
+                    categoryRepository.insertCategory(
+                        com.sinus.pinmap.data.entity.Category(
+                            name = name,
+                            color = color
+                        )
+                    )
+                }
+                showCreateCategoryDialog = false
+            },
+            onDismiss = {
+                showCreateCategoryDialog = false
             }
         )
     }

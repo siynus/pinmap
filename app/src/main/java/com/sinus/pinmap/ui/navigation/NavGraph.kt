@@ -1,10 +1,13 @@
 package com.sinus.pinmap.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sinus.pinmap.ui.screens.CategoryListScreen
 import com.sinus.pinmap.ui.screens.MapScreen
@@ -22,7 +25,23 @@ fun PinmapNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        enterTransition = {
+            // 无进场动画
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(0))
+        },
+        exitTransition = {
+            // 无退场动画
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(0))
+        },
+        popEnterTransition = {
+            // 无进场动画
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(0))
+        },
+        popExitTransition = {
+            // 无退场动画
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(0))
+        }
     ) {
         // 地图页面
         composable(Screen.Map.route) {

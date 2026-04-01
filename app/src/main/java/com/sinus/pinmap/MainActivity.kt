@@ -43,32 +43,27 @@ class MainActivity : ComponentActivity() {
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
 
-                var shouldCloseDrawer by remember { mutableStateOf(false) }
-
-                LaunchedEffect(shouldCloseDrawer) {
-                    if (shouldCloseDrawer) {
-                        drawerState.close()
-                        shouldCloseDrawer = false
-                    }
-                }
-
                 ModalNavigationDrawer(
                     drawerState = drawerState,
-                    gesturesEnabled = false, // 禁用手势，防止误触
+                    gesturesEnabled = false,
                     drawerContent = {
                         NavigationDrawer(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
-                                navController.navigate(route) {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
+                                // 立即关闭抽屉并导航，无动画延迟
+                                scope.launch {
+                                    drawerState.snapTo(DrawerValue.Closed)
+                                    navController.navigate(route) {
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
                                     }
-                                    launchSingleTop = true
                                 }
-                                shouldCloseDrawer = true
                             }
                         )
-                    }
+                    },
+                    scrimColor = androidx.compose.ui.graphics.Color.Transparent
                 ) {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),

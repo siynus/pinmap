@@ -46,13 +46,14 @@ class MapViewModel(
         return pinRepository.getPinById(pinId)
     }
 
-    fun createPin(latitude: Double, longitude: Double, title: String, description: String?) {
+    fun createPin(latitude: Double, longitude: Double, title: String, description: String?, categoryId: Long) {
         viewModelScope.launch {
             val pin = Pin(
                 latitude = latitude,
                 longitude = longitude,
                 title = title,
-                description = description
+                description = description,
+                categoryId = categoryId
             )
             pinRepository.insertPin(pin)
         }

@@ -3,25 +3,29 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 网络权限（用于离线地图下载） -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- 存储权限 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-
-    <!-- 相机权限 -->
-    <uses-permission android:name="android.permission.CAMERA" />
-
-    <!-- 录音权限 -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-    <!-- 位置权限 -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
+        <uses-permission android:name="android.permission.INTERNET" />
+        <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+        <!-- 存储权限 -->
+        <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+        <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+        <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+        <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    
+        <!-- 相机权限 -->
+        <uses-permission android:name="android.permission.CAMERA" />
+    
+        <!-- 录音权限 -->
+        <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    
+        <!-- 位置权限 -->
+        <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+        <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+        <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+        <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+        
+        <!-- 系统设置权限（高德地图需要） -->
+        <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <application
         android:name=".PinmapApplication"
         android:allowBackup="true"
