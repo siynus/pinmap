@@ -36,6 +36,9 @@ interface FieldValueDao {
     @Query("DELETE FROM field_values WHERE id = :id")
     suspend fun deleteFieldValueById(id: Long)
 
+    @Query("DELETE FROM field_values WHERE pinId = :pinId AND fieldTemplateId = :fieldTemplateId")
+    suspend fun deleteFieldValueByPinAndTemplate(pinId: Long, fieldTemplateId: Long)
+
     @Query("DELETE FROM field_values WHERE pinId = :pinId")
     suspend fun deleteFieldValuesByPin(pinId: Long)
 

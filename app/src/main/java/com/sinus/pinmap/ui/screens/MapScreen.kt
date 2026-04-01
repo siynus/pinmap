@@ -550,6 +550,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
         var tempFields by remember { mutableStateOf<List<com.sinus.pinmap.ui.model.FieldData>>(emptyList()) }
         var nextFieldId by remember { mutableStateOf(0L) }
         var currentEditingFieldId by remember { mutableStateOf<Long?>(null) }
+        var viewingImageUrl by remember { mutableStateOf<String?>(null) }
         
         // 图片选择器
         val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -763,12 +764,15 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                                                     }
                                                 }
                                             }
-                                            TextButton(
-                                                onClick = {
-                                                    tempFields = tempFields.filter { it.id != field.id }
+                                            // 只有自定义字段才显示删除按钮
+                                            if (!field.isTemplate) {
+                                                TextButton(
+                                                    onClick = {
+                                                        tempFields = tempFields.filter { it.id != field.id }
+                                                    }
+                                                ) {
+                                                    Text("删除", style = MaterialTheme.typography.bodySmall)
                                                 }
-                                            ) {
-                                                Text("删除", style = MaterialTheme.typography.bodySmall)
                                             }
                                         }
 
@@ -778,48 +782,57 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                                             // 图片类型显示
                                             if (field.value.isNotBlank()) {
                                                 // 显示图片预览
-                                                Card(
+                                                Box(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
-                                                        .height(150.dp)
+                                                        .padding(8.dp)
                                                         .clickable {
-                                                            if (hasImagePermission) {
-                                                                currentEditingFieldId = field.id
-                                                                imagePickerLauncher.launch("image/*")
-                                                            } else {
-                                                                imagePermissionLauncher.launch(
-                                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                                                        Manifest.permission.READ_MEDIA_IMAGES
-                                                                    } else {
-                                                                        Manifest.permission.READ_EXTERNAL_STORAGE
-                                                                    }
-                                                                )
-                                                            }
+                                                            viewingImageUrl = field.value
                                                         }
                                                 ) {
                                                     Image(
                                                         painter = rememberAsyncImagePainter(field.value),
                                                         contentDescription = field.name,
-                                                        modifier = Modifier.fillMaxSize(),
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .heightIn(min = 200.dp, max = 400.dp),
                                                         contentScale = ContentScale.Fit
                                                     )
+                                                    
+                                                    // 删除按钮
+                                                    Surface(
+                                                        color = MaterialTheme.colorScheme.error,
+                                                        shape = RoundedCornerShape(50),
+                                                        modifier = Modifier
+                                                            .align(Alignment.TopEnd)
+                                                            .padding(8.dp)
+                                                            .size(32.dp)
+                                                            .clickable { 
+                                                                if (field.isTemplate) {
+                                                                    // 模板字段：只清除图片值
+                                                                    tempFields = tempFields.map {
+                                                                        if (it.id == field.id) it.copy(value = "") else it
+                                                                    }
+                                                                } else {
+                                                                    // 自定义字段：删除整个字段
+                                                                    tempFields = tempFields.filter { it.id != field.id }
+                                                                }
+                                                            }
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.Close,
+                                                            contentDescription = "删除图片",
+                                                            tint = MaterialTheme.colorScheme.onError,
+                                                            modifier = Modifier.padding(6.dp)
+                                                        )
+                                                    }
                                                 }
                                             } else {
                                                 // 显示选择图片按钮
                                                 OutlinedButton(
                                                     onClick = {
-                                                        if (hasImagePermission) {
-                                                            currentEditingFieldId = field.id
-                                                            imagePickerLauncher.launch("image/*")
-                                                        } else {
-                                                            imagePermissionLauncher.launch(
-                                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                                                    Manifest.permission.READ_MEDIA_IMAGES
-                                                                } else {
-                                                                    Manifest.permission.READ_EXTERNAL_STORAGE
-                                                                }
-                                                            )
-                                                        }
+                                                        currentEditingFieldId = field.id
+                                                        imagePickerLauncher.launch("image/*")
                                                     },
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) {
@@ -923,6 +936,42 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                         ) {
                             Text("保存")
                         }
+                    }
+                }
+            }
+        }
+        
+        // 图片查看对话框
+        if (viewingImageUrl != null) {
+            Dialog(onDismissRequest = { viewingImageUrl = null }) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable { viewingImageUrl = null }
+                ) {
+                    Image(
+                        painter = rememberAsyncImagePainter(viewingImageUrl),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                    
+                    // 关闭按钮
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
+                            .size(48.dp)
+                            .clickable { viewingImageUrl = null }
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "关闭",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp)
+                        )
                     }
                 }
             }

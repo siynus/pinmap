@@ -34,6 +34,7 @@ fun FieldValueEditor(
     hasImagePermission: Boolean = false,
     onRequestImagePermission: () -> Unit = {},
     onSelectImage: () -> Unit = {},
+    onImageClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     when (fieldTemplate.fieldType) {
@@ -50,17 +51,12 @@ fun FieldValueEditor(
         FieldType.NUMBER -> {
             OutlinedTextField(
                 value = value ?: "",
-                onValueChange = {
-                    // 允许空值或有效的数字格式
-                    if (it.isEmpty() || it.matches(Regex("^-?\\d*\\.?\\d*$"))) {
-                        onValueChange(it)
-                    }
-                },
+                onValueChange = onValueChange,
                 label = { Text(fieldTemplate.fieldName) },
                 modifier = modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number
+                    keyboardType = KeyboardType.Decimal
                 )
             )
         }
@@ -85,13 +81,15 @@ fun FieldValueEditor(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp)
-                                .clickable { onValueChange(null) }
+                                .padding(8.dp)
+                                .clickable { onImageClick() }
                         ) {
                             Image(
                                 painter = rememberAsyncImagePainter(value),
                                 contentDescription = fieldTemplate.fieldName,
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 200.dp, max = 400.dp),
                                 contentScale = ContentScale.Fit
                             )
 
@@ -103,7 +101,9 @@ fun FieldValueEditor(
                                     .align(Alignment.TopEnd)
                                     .padding(8.dp)
                                     .size(32.dp)
-                                    .clickable { onValueChange(null) }
+                                    .clickable { 
+                                        onValueChange(null) 
+                                    }
                             ) {
                                 Icon(
                                     Icons.Default.Close,

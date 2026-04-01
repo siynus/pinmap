@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
-                    gesturesEnabled = false,
+                    gesturesEnabled = true,
                     drawerContent = {
                         NavigationDrawer(
                             currentRoute = currentRoute,
@@ -69,8 +69,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         )
-                    },
-                    scrimColor = androidx.compose.ui.graphics.Color.Transparent
+                    }
                 ) {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),

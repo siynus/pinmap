@@ -11,7 +11,6 @@ import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /**
  * 标记详情页面 ViewModel
@@ -50,7 +49,7 @@ class PinDetailViewModel(
             // 获取当前标记的自定义字段（通过 FieldValue 关联）
             val customFieldTemplateIds = fieldValues.keys
             val customTemplates = customFieldTemplateIds.mapNotNull { id ->
-                runBlocking { fieldTemplateRepository.getFieldTemplateById(id) }
+                fieldTemplateRepository.getFieldTemplateById(id)
             }.filter { it.categoryId == null } // 只保留自定义字段（categoryId 为 null）
             
             // 合并并去重
@@ -59,7 +58,7 @@ class PinDetailViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Eagerly,
         initialValue = emptyList()
     )
 
@@ -92,7 +91,17 @@ class PinDetailViewModel(
                 isTemplate = isTemplate,
                 categoryId = if (isTemplate) categoryId else null
             )
-            fieldTemplateRepository.insertFieldTemplate(fieldTemplate)
+            val fieldTemplateId = fieldTemplateRepository.insertFieldTemplate(fieldTemplate)
+            
+            // 为当前标记创建字段值
+            fieldValueRepository.insertFieldValue(
+                FieldValue(
+                    pinId = pinId,
+                    fieldTemplateId = fieldTemplateId,
+                    value = ""
+                )
+            )
+            
             _refreshFieldTemplates.value++
         }
     }
@@ -113,6 +122,21 @@ class PinDetailViewModel(
                     )
                 )
             }
+        }
+    }
+
+    fun deleteFieldValue(fieldTemplateId: Long) {
+        viewModelScope.launch {
+            // 删除当前标记的字段值
+            fieldValueRepository.deleteFieldValueByPinAndTemplate(pinId, fieldTemplateId)
+            
+            // 如果是自定义字段（isTemplate 为 false 且 categoryId 为 null），则删除字段模板
+            val template = fieldTemplateRepository.getFieldTemplateById(fieldTemplateId)
+            if (template != null && !template.isTemplate && template.categoryId == null) {
+                fieldTemplateRepository.deleteFieldTemplate(template)
+            }
+            
+            _refreshFieldTemplates.value++
         }
     }
 

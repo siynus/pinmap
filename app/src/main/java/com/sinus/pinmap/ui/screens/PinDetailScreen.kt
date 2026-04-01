@@ -3,16 +3,23 @@ package com.sinus.pinmap.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -26,6 +33,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
+import coil.compose.rememberAsyncImagePainter
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
@@ -76,6 +84,21 @@ fun PinDetailScreen(
     var showAddFieldDialog by remember { mutableStateOf(false) }
     var fieldToDelete by remember { mutableStateOf<FieldTemplate?>(null) }
     var currentEditingFieldId by remember { mutableStateOf<Long?>(null) }
+    var viewingImageUrl by remember { mutableStateOf<String?>(null) }
+    
+    // 本地缓存字段值，避免每次输入都触发 ViewModel 更新
+    var editingFieldValues by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
+    
+    // 防抖保存：延迟 500ms 后自动保存
+    LaunchedEffect(editingFieldValues) {
+        kotlinx.coroutines.delay(500)
+        if (editingFieldValues.isNotEmpty()) {
+            editingFieldValues.forEach { (fieldTemplateId, value) ->
+                viewModel.updateFieldValue(fieldTemplateId, value)
+            }
+            editingFieldValues = emptyMap()
+        }
+    }
 
     // 图片权限检查
     var hasImagePermission by remember {
@@ -149,19 +172,21 @@ fun PinDetailScreen(
                 Icon(Icons.Default.Add, contentDescription = "添加字段")
             }
         },
-        contentWindowInsets = WindowInsets(0.dp),
         modifier = modifier
     ) { paddingValues ->
+        val density = LocalDensity.current
+        val imePadding = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+        
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(
-                    bottom = with(LocalDensity.current) {
-                        WindowInsets.ime.getBottom(this).toDp()
-                    }
-                ),
-            contentPadding = PaddingValues(16.dp),
+                .padding(paddingValues),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = 16.dp + imePadding
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // 基本信息
@@ -231,12 +256,15 @@ fun PinDetailScreen(
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(16.dp)
                             ) {
+                                val currentValue = editingFieldValues[fieldTemplate.id] 
+                                    ?: fieldValues[fieldTemplate.id]?.value
                                 FieldValueEditor(
                                     fieldTemplate = fieldTemplate,
-                                    value = fieldValues[fieldTemplate.id]?.value,
-                                    onValueChange = { viewModel.updateFieldValue(fieldTemplate.id, it) },
+                                    value = currentValue,
+                                    onValueChange = { newValue ->
+                                        editingFieldValues = editingFieldValues + (fieldTemplate.id to (newValue ?: ""))
+                                    },
                                     hasImagePermission = hasImagePermission,
                                     onRequestImagePermission = {
                                         imagePermissionLauncher.launch(
@@ -251,18 +279,24 @@ fun PinDetailScreen(
                                         currentEditingFieldId = fieldTemplate.id
                                         imagePickerLauncher.launch("image/*")
                                     },
+                                    onImageClick = {
+                                        viewingImageUrl = currentValue
+                                    },
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
-                            IconButton(
-                                onClick = {
-                                    fieldToDelete = fieldTemplate
-                                },
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                )
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "删除字段")
+                            // 只有自定义字段才显示删除按钮
+                            if (!fieldTemplate.isTemplate || fieldTemplate.categoryId == null) {
+                                IconButton(
+                                    onClick = {
+                                        fieldToDelete = fieldTemplate
+                                    },
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "删除字段")
+                                }
                             }
                         }
                     }
@@ -288,38 +322,62 @@ fun PinDetailScreen(
             onDismissRequest = { fieldToDelete = null },
             title = { Text("删除字段") },
             text = {
-                Text("确定要删除字段「${fieldTemplate.fieldName}」吗？\n\n如果该字段是模板字段，删除后可以选择是否保留标记中的字段值。")
+                Text("确定要删除字段「${fieldTemplate.fieldName}」吗？")
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteFieldTemplate(fieldTemplate, keepFieldValues = false)
+                        viewModel.deleteFieldValue(fieldTemplate.id)
                         fieldToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("删除所有")
+                    Text("删除")
                 }
             },
             dismissButton = {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    TextButton(
-                        onClick = {
-                            viewModel.deleteFieldTemplate(fieldTemplate, keepFieldValues = true)
-                            fieldToDelete = null
-                        }
-                    ) {
-                        Text("保留字段值")
-                    }
-                    TextButton(onClick = { fieldToDelete = null }) {
-                        Text("取消")
-                    }
+                TextButton(onClick = { fieldToDelete = null }) {
+                    Text("取消")
                 }
             }
         )
+    }
+
+    // 图片查看对话框
+    viewingImageUrl?.let { imageUrl ->
+        Dialog(onDismissRequest = { viewingImageUrl = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { viewingImageUrl = null }
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(imageUrl),
+                    contentDescription = "查看图片",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+                
+                // 关闭按钮
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                        .size(48.dp)
+                        .clickable { viewingImageUrl = null }
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "关闭",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+        }
     }
 }

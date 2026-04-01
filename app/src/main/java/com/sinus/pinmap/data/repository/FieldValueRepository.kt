@@ -33,6 +33,9 @@ class FieldValueRepository(private val fieldValueDao: FieldValueDao) {
     suspend fun deleteFieldValueById(id: Long) =
         fieldValueDao.deleteFieldValueById(id)
 
+    suspend fun deleteFieldValueByPinAndTemplate(pinId: Long, fieldTemplateId: Long) =
+        fieldValueDao.deleteFieldValueByPinAndTemplate(pinId, fieldTemplateId)
+
     suspend fun deleteFieldValuesByPin(pinId: Long) =
         fieldValueDao.deleteFieldValuesByPin(pinId)
 

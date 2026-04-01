@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Done
@@ -79,6 +80,7 @@ fun CreatePinDialog(
 
     val context = LocalContext.current
     var currentFieldId by remember { mutableStateOf<Long?>(null) }
+    var viewingImageUrl by remember { mutableStateOf<String?>(null) }
 
     // 图片选择器
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -338,21 +340,42 @@ fun CreatePinDialog(
                                         // 图片类型显示
                                         if (field.value.isNotBlank()) {
                                             // 显示图片预览
-                                            Card(
+                                            Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .height(150.dp)
+                                                    .padding(8.dp)
                                                     .clickable {
-                                                        currentFieldId = field.id
-                                                        imagePickerLauncher.launch("image/*")
+                                                        viewingImageUrl = field.value
                                                     }
                                             ) {
                                                 Image(
                                                     painter = rememberAsyncImagePainter(field.value),
                                                     contentDescription = field.name,
-                                                    modifier = Modifier.fillMaxSize(),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .heightIn(min = 200.dp, max = 400.dp),
                                                     contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                                 )
+                                                
+                                                // 删除按钮
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.error,
+                                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                                                    modifier = Modifier
+                                                        .align(androidx.compose.ui.Alignment.TopEnd)
+                                                        .padding(8.dp)
+                                                        .size(32.dp)
+                                                        .clickable { 
+                                                            tempFields = tempFields.filter { it.id != field.id }
+                                                        }
+                                                ) {
+                                                    Icon(
+                                                        androidx.compose.material.icons.Icons.Default.Close,
+                                                        contentDescription = "删除图片",
+                                                        tint = MaterialTheme.colorScheme.onError,
+                                                        modifier = Modifier.padding(6.dp)
+                                                    )
+                                                }
                                             }
                                         } else {
                                             // 显示选择图片按钮
@@ -568,6 +591,42 @@ fun CreatePinDialog(
                             Text("添加")
                         }
                     }
+                }
+            }
+        }
+    }
+    
+    // 图片查看对话框
+    if (viewingImageUrl != null) {
+        Dialog(onDismissRequest = { viewingImageUrl = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { viewingImageUrl = null }
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(viewingImageUrl),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+                
+                // 关闭按钮
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                    modifier = Modifier
+                        .align(androidx.compose.ui.Alignment.TopEnd)
+                        .padding(16.dp)
+                        .size(48.dp)
+                        .clickable { viewingImageUrl = null }
+                ) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Default.Close,
+                        contentDescription = "关闭",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(12.dp)
+                    )
                 }
             }
         }
