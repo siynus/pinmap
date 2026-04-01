@@ -19,3 +19,17 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# 高德地图 ProGuard 规则
+-dontwarn com.amap.api.**
+-keep class com.amap.api.** {*;}
+-keep interface com.amap.api.** {*;}
+-keep class com.amap.apis.** {*;}
+-keep interface com.amap.apis.** {*;}
+-keep class com.loc.** {*;}
+-keep interface com.loc.** {*;}
+
+# 处理重复类
+-dontwarn com.amap.apis.utils.core.api.**
+-keep class com.amap.apis.utils.core.api.AMapUtilCoreApi {*;}
+-keep class com.amap.apis.utils.core.api.NetProxy {*;}
