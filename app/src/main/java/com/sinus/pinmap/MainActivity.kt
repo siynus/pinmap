@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
@@ -45,7 +46,7 @@ class MainActivity : ComponentActivity() {
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
-                    gesturesEnabled = true,
+                    gesturesEnabled = currentRoute != "map",
                     drawerContent = {
                         NavigationDrawer(
                             currentRoute = currentRoute,
@@ -71,24 +72,26 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 ) {
-                    Scaffold(
-                        modifier = Modifier.fillMaxSize(),
-                        topBar = {
-                            TopAppBar(
-                                title = { Text("Pinmap") },
-                                navigationIcon = {
-                                    IconButton(onClick = {
-                                        scope.launch {
-                                            drawerState.open()
+                    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+                        Scaffold(
+                            modifier = Modifier.fillMaxSize(),
+                            topBar = {
+                                TopAppBar(
+                                    title = { Text("Pinmap") },
+                                    navigationIcon = {
+                                        IconButton(onClick = {
+                                            scope.launch {
+                                                drawerState.open()
+                                            }
+                                        }) {
+                                            Icon(Icons.Default.Menu, contentDescription = "菜单")
                                         }
-                                    }) {
-                                        Icon(Icons.Default.Menu, contentDescription = "菜单")
                                     }
-                                }
-                            )
+                                )
+                            }
+                        ) { paddingValues ->
+                            PinmapNavGraph(navController = navController)
                         }
-                    ) { paddingValues ->
-                        PinmapNavGraph(navController = navController)
                     }
                 }
             }
