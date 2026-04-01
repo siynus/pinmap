@@ -52,7 +52,6 @@ class MapViewModel(
         latitude: Double,
         longitude: Double,
         title: String,
-        description: String?,
         categoryId: Long,
         fields: List<com.sinus.pinmap.ui.model.FieldData> = emptyList()
     ) {
@@ -61,7 +60,6 @@ class MapViewModel(
                 latitude = latitude,
                 longitude = longitude,
                 title = title,
-                description = description,
                 categoryId = categoryId
             )
             val pinId = pinRepository.insertPin(pin)

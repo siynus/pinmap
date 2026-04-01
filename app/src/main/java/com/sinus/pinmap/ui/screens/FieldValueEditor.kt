@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -11,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.sinus.pinmap.data.entity.FieldTemplate
@@ -29,6 +31,9 @@ fun FieldValueEditor(
     fieldTemplate: FieldTemplate,
     value: String?,
     onValueChange: (String?) -> Unit,
+    hasImagePermission: Boolean = false,
+    onRequestImagePermission: () -> Unit = {},
+    onSelectImage: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     when (fieldTemplate.fieldType) {
@@ -46,13 +51,17 @@ fun FieldValueEditor(
             OutlinedTextField(
                 value = value ?: "",
                 onValueChange = {
+                    // 允许空值或有效的数字格式
                     if (it.isEmpty() || it.matches(Regex("^-?\\d*\\.?\\d*$"))) {
                         onValueChange(it)
                     }
                 },
                 label = { Text(fieldTemplate.fieldName) },
                 modifier = modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                )
             )
         }
 
@@ -107,7 +116,13 @@ fun FieldValueEditor(
                     } else {
                         // 显示上传按钮
                         OutlinedButton(
-                            onClick = { /* TODO: 实现图片选择 */ },
+                            onClick = {
+                                if (hasImagePermission) {
+                                    onSelectImage()
+                                } else {
+                                    onRequestImagePermission()
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("选择图片")

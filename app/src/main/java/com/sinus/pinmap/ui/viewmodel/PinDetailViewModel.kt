@@ -28,31 +28,40 @@ class PinDetailViewModel(
     private val _pin = MutableStateFlow<Pin?>(null)
     val pin: StateFlow<Pin?> = _pin.asStateFlow()
 
+    // 字段值
+    private val _fieldValues = MutableStateFlow<Map<Long, FieldValue>>(emptyMap())
+    val fieldValues: StateFlow<Map<Long, FieldValue>> = _fieldValues.asStateFlow()
+
     // 用于刷新字段模板的触发器
     private val _refreshFieldTemplates = MutableStateFlow(0)
 
-    // 所有字段模板（当前类别的模板字段）
+    // 所有字段模板（当前类别的模板字段 + 当前标记的自定义字段）
     val fieldTemplates: StateFlow<List<FieldTemplate>> = combine(
         _pin,
+        _fieldValues,
         _refreshFieldTemplates
-    ) { pin, _ ->
+    ) { pin, fieldValues, _ ->
         if (pin == null) {
             emptyList()
         } else {
-            // 获取该标记所属类别的所有字段模板（包括模板字段和自定义字段）
+            // 获取该标记所属类别的所有模板字段
             val categoryTemplates = fieldTemplateRepository.getTemplateFieldsByCategory(pin.categoryId ?: 0L).first()
-            val customTemplates = fieldTemplateRepository.getCustomFieldTemplates().first()
-            categoryTemplates + customTemplates
+            
+            // 获取当前标记的自定义字段（通过 FieldValue 关联）
+            val customFieldTemplateIds = fieldValues.keys
+            val customTemplates = customFieldTemplateIds.mapNotNull { id ->
+                runBlocking { fieldTemplateRepository.getFieldTemplateById(id) }
+            }.filter { it.categoryId == null } // 只保留自定义字段（categoryId 为 null）
+            
+            // 合并并去重
+            val allTemplates = categoryTemplates + customTemplates
+            allTemplates.distinctBy { it.id }
         }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
-
-    // 字段值
-    private val _fieldValues = MutableStateFlow<Map<Long, FieldValue>>(emptyMap())
-    val fieldValues: StateFlow<Map<Long, FieldValue>> = _fieldValues.asStateFlow()
 
     init {
         loadPin()

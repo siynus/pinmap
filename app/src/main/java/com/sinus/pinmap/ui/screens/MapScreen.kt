@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -35,6 +36,8 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import coil.compose.rememberAsyncImagePainter
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -51,6 +54,8 @@ import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.LocationManager
 import com.sinus.pinmap.ui.viewmodel.MapViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -117,7 +122,9 @@ fun MapScreen(
 
     // 记住 MapView 实例
     val mapView = remember {
-        MapView(context)
+        MapView(context).apply {
+            onCreate(null)
+        }
     }
 
     // 地图是否已初始化
@@ -140,6 +147,26 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
     ) { permissions ->
         hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+    }
+
+    // 图片权限请求（Android 13+）
+    var hasImagePermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Manifest.permission.READ_MEDIA_IMAGES
+                } else {
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                }
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val imagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasImagePermission = isGranted
     }
 
     // 在地图初始化时请求权限
@@ -186,14 +213,9 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
         }
     }
 
-    // 管理生命周期 - 不使用DisposableEffect，避免销毁问题
+    // 管理生命周期
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(mapView) {
-        mapView.onCreate(null)
-        mapView.onResume()
-    }
-
-    LaunchedEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
@@ -210,10 +232,20 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                         // 忽略异常
                     }
                 }
+                Lifecycle.Event.ON_DESTROY -> {
+                    try {
+                        mapView.onDestroy()
+                    } catch (e: Exception) {
+                        // 忽略异常
+                    }
+                }
                 else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     val scope = rememberCoroutineScope()
@@ -226,7 +258,10 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 .padding(16.dp)
                 .align(Alignment.BottomCenter),
             shape = RoundedCornerShape(28.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
         ) {
             Row(
                 modifier = Modifier
@@ -423,7 +458,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 }
             },
             modifier = Modifier
-                .align(androidx.compose.ui.Alignment.TopEnd)
+                .align(Alignment.TopEnd)
                 .padding(16.dp)
         ) {
             Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
@@ -465,12 +500,11 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             address = selectedAddress,
             categories = categories,
             categoryTemplates = categoryTemplates,
-            onConfirm = { title, description, categoryId, fields ->
+            onConfirm = { title, categoryId, fields ->
                 viewModel.createPin(
                     latitude = selectedLocation!!.latitude,
                     longitude = selectedLocation!!.longitude,
                     title = title,
-                    description = description.ifBlank { null },
                     categoryId = categoryId,
                     fields = fields
                 )
@@ -510,39 +544,42 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
     // 显示编辑标记对话框
     if (showEditDialog && selectedPin != null) {
         var editTitle by remember { mutableStateOf(selectedPin!!.title) }
-        var editDescription by remember { mutableStateOf(selectedPin!!.description ?: "") }
         var editCategory by remember { mutableStateOf<Category?>(null) }
         var expanded by remember { mutableStateOf(false) }
         var showAddFieldDialog by remember { mutableStateOf(false) }
         var tempFields by remember { mutableStateOf<List<com.sinus.pinmap.ui.model.FieldData>>(emptyList()) }
         var nextFieldId by remember { mutableStateOf(0L) }
+        var currentEditingFieldId by remember { mutableStateOf<Long?>(null) }
         
         // 图片选择器
         val imagePickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
             uri?.let { selectedUri ->
-                scope.launch {
-                    val inputStream = context.contentResolver.openInputStream(selectedUri)
-                    val timeStamp = System.currentTimeMillis()
-                    val fileName = "IMG_${timeStamp}.jpg"
-                    val imagesDir = File(context.filesDir, "images")
-                    if (!imagesDir.exists()) {
-                        imagesDir.mkdirs()
-                    }
-                    val imageFile = File(imagesDir, fileName)
-                    
-                    inputStream?.use { input ->
-                        FileOutputStream(imageFile).use { output ->
-                            input.copyTo(output)
+                currentEditingFieldId?.let { fieldId ->
+                    scope.launch {
+                        val inputStream = context.contentResolver.openInputStream(selectedUri)
+                        val timeStamp = System.currentTimeMillis()
+                        val fileName = "IMG_${timeStamp}.jpg"
+                        val imagesDir = File(context.filesDir, "images")
+                        if (!imagesDir.exists()) {
+                            imagesDir.mkdirs()
                         }
+                        val imageFile = File(imagesDir, fileName)
+                        
+                        inputStream?.use { input ->
+                            FileOutputStream(imageFile).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        
+                        val imageUri = Uri.fromFile(imageFile).toString()
+                        // 更新当前编辑的字段值
+                        tempFields = tempFields.map { if (it.id == fieldId) it.copy(value = imageUri) else it }
                     }
-                    
-                    val imageUri = Uri.fromFile(imageFile).toString()
-                    // 更新当前编辑的字段值
-                    tempFields = tempFields.map { if (it.type == com.sinus.pinmap.data.entity.FieldType.IMAGE && it.value.isEmpty()) it.copy(value = imageUri) else it }
                 }
             }
+            currentEditingFieldId = null
         }
 
         // 初始化编辑分类和字段
@@ -552,19 +589,37 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 
                 // 加载字段模板和字段值
                 scope.launch {
-                    fieldTemplateRepository.getTemplateFieldsByCategory(pin.categoryId ?: 0L).collect { templates ->
-                        fieldValueRepository.getFieldValuesByPin(pin.id).collect { values ->
-                            val valueMap = values.associateBy { it.fieldTemplateId }
-                            tempFields = templates.map { template ->
-                                com.sinus.pinmap.ui.model.FieldData(
-                                    id = nextFieldId++,
-                                    name = template.fieldName,
-                                    type = template.fieldType,
-                                    value = valueMap[template.id]?.value ?: "",
-                                    isTemplate = template.isTemplate
-                                )
-                            }
-                        }
+                    // 并行加载模板字段和字段值
+                    val templatesDeferred = async<List<com.sinus.pinmap.data.entity.FieldTemplate>> {
+                        fieldTemplateRepository.getTemplateFieldsByCategory(pin.categoryId ?: 0L).first()
+                    }
+                    val valuesDeferred = async<List<com.sinus.pinmap.data.entity.FieldValue>> {
+                        fieldValueRepository.getFieldValuesByPin(pin.id).first()
+                    }
+                    
+                    val templates = templatesDeferred.await()
+                    val values = valuesDeferred.await()
+                    val valueMap = values.associateBy { it.fieldTemplateId }
+                    
+                    // 加载自定义字段（通过 fieldTemplateId 查询）
+                    val customTemplateIds = values.map { it.fieldTemplateId }.toSet()
+                    val customTemplates = customTemplateIds.mapNotNull { id ->
+                        scope.async {
+                            fieldTemplateRepository.getFieldTemplateById(id)
+                        }.await()
+                    }.filterNotNull().filter { it.categoryId == null } // 只保留自定义字段
+                    
+                    // 合并所有字段模板
+                    val allTemplates = templates + customTemplates
+                    
+                    tempFields = allTemplates.map { template ->
+                        com.sinus.pinmap.ui.model.FieldData(
+                            id = nextFieldId++,
+                            name = template.fieldName,
+                            type = template.fieldType,
+                            value = valueMap[template.id]?.value ?: "",
+                            isTemplate = template.isTemplate
+                        )
                     }
                 }
             }
@@ -661,16 +716,6 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
-                        value = editDescription,
-                        onValueChange = { editDescription = it },
-                        label = { Text("描述") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
                     // 自定义字段
                     if (tempFields.isEmpty()) {
                         Text(
@@ -738,7 +783,18 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                                                         .fillMaxWidth()
                                                         .height(150.dp)
                                                         .clickable {
-                                                            imagePickerLauncher.launch("image/*")
+                                                            if (hasImagePermission) {
+                                                                currentEditingFieldId = field.id
+                                                                imagePickerLauncher.launch("image/*")
+                                                            } else {
+                                                                imagePermissionLauncher.launch(
+                                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                                        Manifest.permission.READ_MEDIA_IMAGES
+                                                                    } else {
+                                                                        Manifest.permission.READ_EXTERNAL_STORAGE
+                                                                    }
+                                                                )
+                                                            }
                                                         }
                                                 ) {
                                                     Image(
@@ -752,7 +808,18 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                                                 // 显示选择图片按钮
                                                 OutlinedButton(
                                                     onClick = {
-                                                        imagePickerLauncher.launch("image/*")
+                                                        if (hasImagePermission) {
+                                                            currentEditingFieldId = field.id
+                                                            imagePickerLauncher.launch("image/*")
+                                                        } else {
+                                                            imagePermissionLauncher.launch(
+                                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                                    Manifest.permission.READ_MEDIA_IMAGES
+                                                                } else {
+                                                                    Manifest.permission.READ_EXTERNAL_STORAGE
+                                                                }
+                                                            )
+                                                        }
                                                     },
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) {
@@ -819,7 +886,6 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                                     viewModel.updatePin(
                                         selectedPin!!.copy(
                                             title = editTitle,
-                                            description = editDescription.ifBlank { null },
                                             categoryId = category.id
                                         )
                                     )

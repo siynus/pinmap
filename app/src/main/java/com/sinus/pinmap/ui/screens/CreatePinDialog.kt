@@ -46,12 +46,11 @@ fun CreatePinDialog(
     address: String,
     categories: List<Category>,
     categoryTemplates: Map<Long, List<com.sinus.pinmap.data.entity.FieldTemplate>> = emptyMap(),
-    onConfirm: (title: String, description: String, categoryId: Long, fields: List<FieldData>) -> Unit,
+    onConfirm: (title: String, categoryId: Long, fields: List<FieldData>) -> Unit,
     onCreateCategory: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<Category?>(null) }
     var expanded by remember { mutableStateOf(false) }
     var showCreateFieldDialog by remember { mutableStateOf(false) }
@@ -270,16 +269,6 @@ fun CreatePinDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("描述") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 // 自定义字段部分
                 Text(
                     text = "自定义字段",
@@ -433,7 +422,7 @@ fun CreatePinDialog(
                     Button(
                         onClick = {
                             selectedCategory?.let {
-                                onConfirm(title, description, it.id, tempFields)
+                                onConfirm(title, it.id, tempFields)
                             }
                         },
                         enabled = title.isNotBlank() && selectedCategory != null

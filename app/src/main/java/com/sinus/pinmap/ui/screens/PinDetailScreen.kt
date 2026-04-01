@@ -10,8 +10,22 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
@@ -57,8 +71,65 @@ fun PinDetailScreen(
     val fieldTemplates by viewModel.fieldTemplates.collectAsState()
     val fieldValues by viewModel.fieldValues.collectAsState()
 
+    val scope = rememberCoroutineScope()
+
     var showAddFieldDialog by remember { mutableStateOf(false) }
     var fieldToDelete by remember { mutableStateOf<FieldTemplate?>(null) }
+    var currentEditingFieldId by remember { mutableStateOf<Long?>(null) }
+
+    // 图片权限检查
+    var hasImagePermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Manifest.permission.READ_MEDIA_IMAGES
+                } else {
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                }
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val imagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasImagePermission = isGranted
+    }
+
+    // 图片选择器
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            currentEditingFieldId?.let { fieldId ->
+                scope.launch {
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(selectedUri)
+                        val timeStamp = System.currentTimeMillis()
+                        val fileName = "IMG_${timeStamp}.jpg"
+                        val imagesDir = File(context.filesDir, "images")
+                        if (!imagesDir.exists()) {
+                            imagesDir.mkdirs()
+                        }
+                        val imageFile = File(imagesDir, fileName)
+                        
+                        inputStream?.use { input ->
+                            FileOutputStream(imageFile).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        
+                        val imageUri = Uri.fromFile(imageFile).toString()
+                        viewModel.updateFieldValue(fieldId, imageUri)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+        currentEditingFieldId = null
+    }
 
     Scaffold(
         topBar = {
@@ -78,12 +149,18 @@ fun PinDetailScreen(
                 Icon(Icons.Default.Add, contentDescription = "添加字段")
             }
         },
+        contentWindowInsets = WindowInsets(0.dp),
         modifier = modifier
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
+                .padding(
+                    bottom = with(LocalDensity.current) {
+                        WindowInsets.ime.getBottom(this).toDp()
+                    }
+                ),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -160,6 +237,20 @@ fun PinDetailScreen(
                                     fieldTemplate = fieldTemplate,
                                     value = fieldValues[fieldTemplate.id]?.value,
                                     onValueChange = { viewModel.updateFieldValue(fieldTemplate.id, it) },
+                                    hasImagePermission = hasImagePermission,
+                                    onRequestImagePermission = {
+                                        imagePermissionLauncher.launch(
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                Manifest.permission.READ_MEDIA_IMAGES
+                                            } else {
+                                                Manifest.permission.READ_EXTERNAL_STORAGE
+                                            }
+                                        )
+                                    },
+                                    onSelectImage = {
+                                        currentEditingFieldId = fieldTemplate.id
+                                        imagePickerLauncher.launch("image/*")
+                                    },
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
