@@ -36,7 +36,6 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
-import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import coil.compose.rememberAsyncImagePainter
 import androidx.core.content.ContextCompat
@@ -59,6 +58,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.material3.OutlinedTextFieldDefaults
 
 /**
  * 地图页面
@@ -102,6 +109,10 @@ fun MapScreen(
     var selectedAddress by remember { mutableStateOf("获取中...") }
     var searchQuery by remember { mutableStateOf("") }
     var showSearchResults by remember { mutableStateOf(false) }
+    
+    // 键盘控制器和焦点请求器
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val searchFocusRequester = remember { FocusRequester() }
 
     // 搜索结果
     val searchResults by remember(searchQuery) {
@@ -251,110 +262,6 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
     val scope = rememberCoroutineScope()
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 搜索栏 - 放在底部
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .align(Alignment.BottomCenter),
-            shape = RoundedCornerShape(28.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = {
-                        searchQuery = it
-                        showSearchResults = it.isNotBlank()
-                    },
-                    placeholder = { Text("搜索标记...") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-                        unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
-                    )
-                )
-
-                if (searchQuery.isNotBlank()) {
-                    IconButton(onClick = {
-                        searchQuery = ""
-                        showSearchResults = false
-                    }) {
-                        Icon(Icons.Default.Close, contentDescription = "清除搜索")
-                    }
-                }
-            }
-        }
-
-        // 搜索结果列表
-        if (showSearchResults && searchResults.isNotEmpty()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .align(Alignment.BottomCenter)
-                    .offset(y = -80.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 300.dp)
-                ) {
-                    items(searchResults) { pin ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp)
-                                .clickable {
-                                    // 跳转到标记位置
-                                    scope.launch {
-                                        val aMap = mapView.map
-                                        val latLng = LatLng(pin.latitude, pin.longitude)
-                                        aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
-                                        showSearchResults = false
-                                        searchQuery = ""
-                                    }
-                                }
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp)
-                            ) {
-                                Text(
-                                    text = pin.title,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                pin.description?.let { description ->
-                                    Text(
-                                        text = description,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { mapView }
@@ -417,7 +324,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             })
         }
 
-        // 定位按钮 - 放在右上角
+        // 定位按钮 - 放在搜索框右上方
         FloatingActionButton(
             onClick = {
                 if (!hasLocationPermission) {
@@ -458,10 +365,135 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 }
             },
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 80.dp)
         ) {
             Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
+        }
+
+        // 搜索栏 - 放在底部
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .imePadding()
+                .align(Alignment.BottomCenter),
+            shape = RoundedCornerShape(28.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { newValue: String ->
+                        searchQuery = newValue
+                        showSearchResults = newValue.isNotBlank()
+                    },
+                    placeholder = { Text("搜索标记...") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(searchFocusRequester),
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onSearch = {
+                            if (searchResults.isNotEmpty()) {
+                                // 点击搜索按钮时，跳转到第一个搜索结果
+                                scope.launch {
+                                    val pin = searchResults.first()
+                                    val aMap = mapView.map
+                                    val latLng = LatLng(pin.latitude, pin.longitude)
+                                    aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                                    showSearchResults = false
+                                    searchQuery = ""
+                                    keyboardController?.hide()
+                                }
+                            }
+                        }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                    )
+                )
+
+                if (searchQuery.isNotBlank()) {
+                    IconButton(onClick = {
+                        searchQuery = ""
+                        showSearchResults = false
+                    }) {
+                        Icon(Icons.Default.Close, contentDescription = "清除搜索")
+                    }
+                }
+            }
+        }
+
+        // 搜索结果列表 - 显示在搜索框上方
+        if (showSearchResults && searchResults.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 100.dp)
+                    .imePadding()
+                    .align(Alignment.BottomCenter),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                ) {
+                    items(searchResults) { pin ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable {
+                                    // 跳转到标记位置
+                                    scope.launch {
+                                        val aMap = mapView.map
+                                        val latLng = LatLng(pin.latitude, pin.longitude)
+                                        aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                                        showSearchResults = false
+                                        searchQuery = ""
+                                        keyboardController?.hide()
+                                    }
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Text(
+                                    text = pin.title,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                pin.description?.let { description ->
+                                    Text(
+                                        text = description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
