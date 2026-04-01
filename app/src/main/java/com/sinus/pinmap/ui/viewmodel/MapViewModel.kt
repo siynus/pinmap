@@ -13,7 +13,9 @@ import kotlinx.coroutines.launch
  * 地图页面 ViewModel
  */
 class MapViewModel(
-    private val pinRepository: PinRepository
+    private val pinRepository: PinRepository,
+    private val fieldTemplateRepository: com.sinus.pinmap.data.repository.FieldTemplateRepository,
+    private val fieldValueRepository: com.sinus.pinmap.data.repository.FieldValueRepository
 ) : ViewModel() {
 
     private val _pins = MutableStateFlow<List<Pin>>(emptyList())
@@ -46,7 +48,14 @@ class MapViewModel(
         return pinRepository.getPinById(pinId)
     }
 
-    fun createPin(latitude: Double, longitude: Double, title: String, description: String?, categoryId: Long) {
+    fun createPin(
+        latitude: Double,
+        longitude: Double,
+        title: String,
+        description: String?,
+        categoryId: Long,
+        fields: List<com.sinus.pinmap.ui.model.FieldData> = emptyList()
+    ) {
         viewModelScope.launch {
             val pin = Pin(
                 latitude = latitude,
@@ -55,7 +64,27 @@ class MapViewModel(
                 description = description,
                 categoryId = categoryId
             )
-            pinRepository.insertPin(pin)
+            val pinId = pinRepository.insertPin(pin)
+
+            // 创建字段模板和字段值
+            fields.forEach { fieldData ->
+                // 创建字段模板
+                val fieldTemplate = com.sinus.pinmap.data.entity.FieldTemplate(
+                    categoryId = if (fieldData.isTemplate) categoryId else null,
+                    fieldName = fieldData.name,
+                    fieldType = fieldData.type,
+                    isTemplate = fieldData.isTemplate
+                )
+                val fieldTemplateId = fieldTemplateRepository.insertFieldTemplate(fieldTemplate)
+
+                // 创建字段值
+                val fieldValue = com.sinus.pinmap.data.entity.FieldValue(
+                    pinId = pinId,
+                    fieldTemplateId = fieldTemplateId,
+                    value = fieldData.value.ifBlank { null }
+                )
+                fieldValueRepository.insertFieldValue(fieldValue)
+            }
         }
     }
 

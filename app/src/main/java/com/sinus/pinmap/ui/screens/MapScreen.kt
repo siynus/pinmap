@@ -3,18 +3,39 @@ package com.sinus.pinmap.ui.screens
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import coil.compose.rememberAsyncImagePainter
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -26,14 +47,18 @@ import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.Marker
 import com.amap.api.maps.model.MarkerOptions
 import com.sinus.pinmap.data.database.PinmapDatabase
+import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.LocationManager
 import com.sinus.pinmap.ui.viewmodel.MapViewModel
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 
 /**
  * 地图页面
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun MapScreen(
@@ -44,16 +69,48 @@ fun MapScreen(
     val database = remember { PinmapDatabase.getDatabase(context) }
     val pinRepository = remember { PinRepository(database.pinDao()) }
     val categoryRepository = remember { com.sinus.pinmap.data.repository.CategoryRepository(database.categoryDao()) }
-    val viewModel: MapViewModel = viewModel { MapViewModel(pinRepository) }
+    val fieldTemplateRepository = remember { com.sinus.pinmap.data.repository.FieldTemplateRepository(database.fieldTemplateDao()) }
+    val fieldValueRepository = remember { com.sinus.pinmap.data.repository.FieldValueRepository(database.fieldValueDao()) }
+    val viewModel: MapViewModel = viewModel { MapViewModel(pinRepository, fieldTemplateRepository, fieldValueRepository) }
 
     val pins by viewModel.pins.collectAsState()
     val selectedPin by viewModel.selectedPin.collectAsState()
     val categories by categoryRepository.getAllCategories().collectAsState(initial = emptyList())
+    
+    // 获取每个类别的模板字段
+    var categoryTemplates by remember { mutableStateOf<Map<Long, List<com.sinus.pinmap.data.entity.FieldTemplate>>>(emptyMap()) }
+    
+    LaunchedEffect(categories) {
+        val templatesMap = mutableMapOf<Long, List<com.sinus.pinmap.data.entity.FieldTemplate>>()
+        categories.forEach { category ->
+            fieldTemplateRepository.getTemplateFieldsByCategory(category.id).collect { templates ->
+                templatesMap[category.id] = templates
+                categoryTemplates = templatesMap.toMap()
+            }
+        }
+    }
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showCreateCategoryDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
     var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
     var selectedAddress by remember { mutableStateOf("获取中...") }
+    var searchQuery by remember { mutableStateOf("") }
+    var showSearchResults by remember { mutableStateOf(false) }
+
+    // 搜索结果
+    val searchResults by remember(searchQuery) {
+        derivedStateOf {
+            if (searchQuery.isBlank()) {
+                emptyList()
+            } else {
+                pins.filter {
+                    it.title.contains(searchQuery, ignoreCase = true) ||
+                    (it.description?.contains(searchQuery, ignoreCase = true) == true)
+                }
+            }
+        }
+    }
 
     // 位置管理器
     val locationManager = remember { LocationManager(context) }
@@ -162,6 +219,107 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
     val scope = rememberCoroutineScope()
 
     Box(modifier = modifier.fillMaxSize()) {
+        // 搜索栏 - 放在底部
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .align(Alignment.BottomCenter),
+            shape = RoundedCornerShape(28.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        showSearchResults = it.isNotBlank()
+                    },
+                    placeholder = { Text("搜索标记...") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                    )
+                )
+
+                if (searchQuery.isNotBlank()) {
+                    IconButton(onClick = {
+                        searchQuery = ""
+                        showSearchResults = false
+                    }) {
+                        Icon(Icons.Default.Close, contentDescription = "清除搜索")
+                    }
+                }
+            }
+        }
+
+        // 搜索结果列表
+        if (showSearchResults && searchResults.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .align(Alignment.BottomCenter)
+                    .offset(y = -80.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                ) {
+                    items(searchResults) { pin ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable {
+                                    // 跳转到标记位置
+                                    scope.launch {
+                                        val aMap = mapView.map
+                                        val latLng = LatLng(pin.latitude, pin.longitude)
+                                        aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                                        showSearchResults = false
+                                        searchQuery = ""
+                                    }
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Text(
+                                    text = pin.title,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                pin.description?.let { description ->
+                                    Text(
+                                        text = description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { mapView }
@@ -199,7 +357,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 }
                 if (pin != null) {
                     viewModel.selectPin(pin)
-                    // TODO: 显示详情弹窗
+                    showEditDialog = true
                 }
                 true
             }
@@ -224,7 +382,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             })
         }
 
-        // 定位按钮
+        // 定位按钮 - 放在右上角
         FloatingActionButton(
             onClick = {
                 if (!hasLocationPermission) {
@@ -265,7 +423,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 }
             },
             modifier = Modifier
-                .align(androidx.compose.ui.Alignment.BottomEnd)
+                .align(androidx.compose.ui.Alignment.TopEnd)
                 .padding(16.dp)
         ) {
             Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
@@ -306,13 +464,15 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             location = selectedLocation!!,
             address = selectedAddress,
             categories = categories,
-            onConfirm = { title, description, categoryId ->
+            categoryTemplates = categoryTemplates,
+            onConfirm = { title, description, categoryId, fields ->
                 viewModel.createPin(
                     latitude = selectedLocation!!.latitude,
                     longitude = selectedLocation!!.longitude,
                     title = title,
                     description = description.ifBlank { null },
-                    categoryId = categoryId
+                    categoryId = categoryId,
+                    fields = fields
                 )
                 showCreateDialog = false
                 selectedLocation = null
@@ -345,5 +505,500 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 showCreateCategoryDialog = false
             }
         )
+    }
+
+    // 显示编辑标记对话框
+    if (showEditDialog && selectedPin != null) {
+        var editTitle by remember { mutableStateOf(selectedPin!!.title) }
+        var editDescription by remember { mutableStateOf(selectedPin!!.description ?: "") }
+        var editCategory by remember { mutableStateOf<Category?>(null) }
+        var expanded by remember { mutableStateOf(false) }
+        var showAddFieldDialog by remember { mutableStateOf(false) }
+        var tempFields by remember { mutableStateOf<List<com.sinus.pinmap.ui.model.FieldData>>(emptyList()) }
+        var nextFieldId by remember { mutableStateOf(0L) }
+        
+        // 图片选择器
+        val imagePickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            uri?.let { selectedUri ->
+                scope.launch {
+                    val inputStream = context.contentResolver.openInputStream(selectedUri)
+                    val timeStamp = System.currentTimeMillis()
+                    val fileName = "IMG_${timeStamp}.jpg"
+                    val imagesDir = File(context.filesDir, "images")
+                    if (!imagesDir.exists()) {
+                        imagesDir.mkdirs()
+                    }
+                    val imageFile = File(imagesDir, fileName)
+                    
+                    inputStream?.use { input ->
+                        FileOutputStream(imageFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    
+                    val imageUri = Uri.fromFile(imageFile).toString()
+                    // 更新当前编辑的字段值
+                    tempFields = tempFields.map { if (it.type == com.sinus.pinmap.data.entity.FieldType.IMAGE && it.value.isEmpty()) it.copy(value = imageUri) else it }
+                }
+            }
+        }
+
+        // 初始化编辑分类和字段
+        LaunchedEffect(selectedPin) {
+            selectedPin?.let { pin ->
+                editCategory = categories.find { it.id == pin.categoryId }
+                
+                // 加载字段模板和字段值
+                scope.launch {
+                    fieldTemplateRepository.getTemplateFieldsByCategory(pin.categoryId ?: 0L).collect { templates ->
+                        fieldValueRepository.getFieldValuesByPin(pin.id).collect { values ->
+                            val valueMap = values.associateBy { it.fieldTemplateId }
+                            tempFields = templates.map { template ->
+                                com.sinus.pinmap.ui.model.FieldData(
+                                    id = nextFieldId++,
+                                    name = template.fieldName,
+                                    type = template.fieldType,
+                                    value = valueMap[template.id]?.value ?: "",
+                                    isTemplate = template.isTemplate
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 初始化编辑分类
+        LaunchedEffect(selectedPin) {
+            selectedPin?.let { pin ->
+                editCategory = categories.find { it.id == pin.categoryId }
+            }
+        }
+
+        Dialog(onDismissRequest = { showEditDialog = false }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        text = "编辑标记",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 类别选择器
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = editCategory?.name ?: "",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("选择分类") },
+                            trailingIcon = {
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .background(Color(category.color), CircleShape)
+                                            )
+                                            Text(category.name)
+                                        }
+                                    },
+                                    onClick = {
+                                        editCategory = category
+                                        expanded = false
+                                    },
+                                    leadingIcon = if (editCategory?.id == category.id) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    } else null
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("标题") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = editDescription,
+                        onValueChange = { editDescription = it },
+                        label = { Text("描述") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 自定义字段
+                    if (tempFields.isEmpty()) {
+                        Text(
+                            text = "还没有添加字段",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(tempFields) { field ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = field.name,
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                                if (field.isTemplate) {
+                                                    Surface(
+                                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "模板",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            TextButton(
+                                                onClick = {
+                                                    tempFields = tempFields.filter { it.id != field.id }
+                                                }
+                                            ) {
+                                                Text("删除", style = MaterialTheme.typography.bodySmall)
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        if (field.type == com.sinus.pinmap.data.entity.FieldType.IMAGE) {
+                                            // 图片类型显示
+                                            if (field.value.isNotBlank()) {
+                                                // 显示图片预览
+                                                Card(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(150.dp)
+                                                        .clickable {
+                                                            imagePickerLauncher.launch("image/*")
+                                                        }
+                                                ) {
+                                                    Image(
+                                                        painter = rememberAsyncImagePainter(field.value),
+                                                        contentDescription = field.name,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Fit
+                                                    )
+                                                }
+                                            } else {
+                                                // 显示选择图片按钮
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        imagePickerLauncher.launch("image/*")
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Text("选择图片")
+                                                }
+                                            }
+                                        } else {
+                                            // 文本和数字类型
+                                            OutlinedTextField(
+                                                value = field.value,
+                                                onValueChange = { newValue ->
+                                                    tempFields = tempFields.map {
+                                                        if (it.id == field.id) it.copy(value = newValue) else it
+                                                    }
+                                                },
+                                                placeholder = {
+                                                    Text(
+                                                        when (field.type) {
+                                                            com.sinus.pinmap.data.entity.FieldType.TEXT -> "输入文本"
+                                                            com.sinus.pinmap.data.entity.FieldType.NUMBER -> "输入数字"
+                                                            com.sinus.pinmap.data.entity.FieldType.IMAGE -> "图片路径"
+                                                            else -> "输入值"
+                                                        }
+                                                    )
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 添加字段按钮
+                    OutlinedButton(
+                        onClick = { showAddFieldDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("添加字段")
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showEditDialog = false }) {
+                            Text("取消")
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Button(
+                            onClick = {
+                                val category = editCategory
+                                if (category != null) {
+                                    viewModel.updatePin(
+                                        selectedPin!!.copy(
+                                            title = editTitle,
+                                            description = editDescription.ifBlank { null },
+                                            categoryId = category.id
+                                        )
+                                    )
+                                    
+                                    // 保存字段值
+                                    scope.launch {
+                                        // 删除旧字段值
+                                        fieldValueRepository.deleteFieldValuesByPin(selectedPin!!.id)
+                                        
+                                        // 保存新字段值
+                                        tempFields.forEach { fieldData ->
+                                            // 创建字段模板
+                                            val fieldTemplate = com.sinus.pinmap.data.entity.FieldTemplate(
+                                                categoryId = if (fieldData.isTemplate) category.id else null,
+                                                fieldName = fieldData.name,
+                                                fieldType = fieldData.type,
+                                                isTemplate = fieldData.isTemplate
+                                            )
+                                            val fieldTemplateId = fieldTemplateRepository.insertFieldTemplate(fieldTemplate)
+                                            
+                                            // 创建字段值
+                                            val fieldValue = com.sinus.pinmap.data.entity.FieldValue(
+                                                pinId = selectedPin!!.id,
+                                                fieldTemplateId = fieldTemplateId,
+                                                value = fieldData.value.ifBlank { null }
+                                            )
+                                            fieldValueRepository.insertFieldValue(fieldValue)
+                                        }
+                                    }
+                                    
+                                    showEditDialog = false
+                                }
+                            },
+                            enabled = editTitle.isNotBlank() && editCategory != null
+                        ) {
+                            Text("保存")
+                        }
+                    }
+                }
+            }
+        }
+
+        // 创建字段对话框
+        if (showAddFieldDialog) {
+            var fieldName by remember { mutableStateOf("") }
+            var fieldType by remember { mutableStateOf(com.sinus.pinmap.data.entity.FieldType.TEXT) }
+            var isTemplate by remember { mutableStateOf(false) }
+
+            Dialog(onDismissRequest = { showAddFieldDialog = false }) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "添加字段",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedTextField(
+                            value = fieldName,
+                            onValueChange = { fieldName = it },
+                            label = { Text("字段名称") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "字段类型",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = fieldType == com.sinus.pinmap.data.entity.FieldType.TEXT,
+                                onClick = { fieldType = com.sinus.pinmap.data.entity.FieldType.TEXT },
+                                label = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                                        Text("文本")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            FilterChip(
+                                selected = fieldType == com.sinus.pinmap.data.entity.FieldType.IMAGE,
+                                onClick = { fieldType = com.sinus.pinmap.data.entity.FieldType.IMAGE },
+                                label = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                                        Text("图片")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            FilterChip(
+                                selected = fieldType == com.sinus.pinmap.data.entity.FieldType.NUMBER,
+                                onClick = { fieldType = com.sinus.pinmap.data.entity.FieldType.NUMBER },
+                                label = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                                        Text("数字")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 是否添加到通用模板
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isTemplate,
+                                onCheckedChange = { isTemplate = it }
+                            )
+                            Text(
+                                text = "添加到当前类别的通用模板",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { showAddFieldDialog = false }) {
+                                Text("取消")
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Button(
+                                onClick = {
+                                    tempFields = tempFields + com.sinus.pinmap.ui.model.FieldData(
+                                        id = nextFieldId++,
+                                        name = fieldName,
+                                        type = fieldType,
+                                        value = "",
+                                        isTemplate = isTemplate
+                                    )
+                                    showAddFieldDialog = false
+                                },
+                                enabled = fieldName.isNotBlank()
+                            ) {
+                                Text("添加")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

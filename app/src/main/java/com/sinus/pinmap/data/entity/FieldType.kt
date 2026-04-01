@@ -8,5 +8,6 @@ enum class FieldType {
     NUMBER,
     DATE,
     SINGLE_CHOICE,
-    MULTI_CHOICE
+    MULTI_CHOICE,
+    IMAGE
 }

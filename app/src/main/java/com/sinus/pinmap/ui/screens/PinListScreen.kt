@@ -31,7 +31,7 @@ import com.sinus.pinmap.ui.viewmodel.PinListViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PinListScreen(
-    onPinClick: (Long) -> Unit,
+    onPinClick: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current

@@ -50,14 +50,21 @@ class MainActivity : ComponentActivity() {
                         NavigationDrawer(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
-                                // 立即关闭抽屉并导航，无动画延迟
-                                scope.launch {
-                                    drawerState.snapTo(DrawerValue.Closed)
-                                    navController.navigate(route) {
-                                        popUpTo(navController.graph.startDestinationId) {
-                                            saveState = true
+                                // 懒加载机制：如果是当前路由则不重新导航
+                                if (route != currentRoute) {
+                                    scope.launch {
+                                        drawerState.snapTo(DrawerValue.Closed)
+                                        navController.navigate(route) {
+                                            popUpTo(navController.graph.startDestinationId) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
                                         }
-                                        launchSingleTop = true
+                                    }
+                                } else {
+                                    // 关闭抽屉但不重新导航
+                                    scope.launch {
+                                        drawerState.snapTo(DrawerValue.Closed)
                                     }
                                 }
                             }

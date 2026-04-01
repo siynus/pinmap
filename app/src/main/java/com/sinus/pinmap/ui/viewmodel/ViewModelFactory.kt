@@ -12,12 +12,18 @@ class ViewModelFactory(
     private val categoryRepository: CategoryRepository? = null,
     private val customFieldRepository: CustomFieldRepository? = null,
     private val attachmentRepository: AttachmentRepository? = null,
-    private val offlineMapRepository: OfflineMapRepository? = null
+    private val offlineMapRepository: OfflineMapRepository? = null,
+    private val fieldTemplateRepository: FieldTemplateRepository? = null,
+    private val fieldValueRepository: FieldValueRepository? = null
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when (modelClass) {
-            MapViewModel::class.java -> MapViewModel(pinRepository) as T
+            MapViewModel::class.java -> MapViewModel(
+                pinRepository,
+                fieldTemplateRepository ?: throw IllegalArgumentException("fieldTemplateRepository is required for MapViewModel"),
+                fieldValueRepository ?: throw IllegalArgumentException("fieldValueRepository is required for MapViewModel")
+            ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }

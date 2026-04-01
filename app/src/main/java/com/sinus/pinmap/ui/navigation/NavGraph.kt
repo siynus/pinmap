@@ -12,6 +12,7 @@ import androidx.navigation.navArgument
 import com.sinus.pinmap.ui.screens.CategoryListScreen
 import com.sinus.pinmap.ui.screens.MapScreen
 import com.sinus.pinmap.ui.screens.OfflineMapScreen
+import com.sinus.pinmap.ui.screens.PinDetailScreen
 import com.sinus.pinmap.ui.screens.PinEditScreen
 import com.sinus.pinmap.ui.screens.PinListScreen
 
@@ -76,11 +77,29 @@ fun PinmapNavGraph(
             )
         }
 
+        // 标记详情页面
+        composable(
+            route = Screen.PinDetail.route,
+            arguments = listOf(
+                navArgument("pinId") {
+                    type = NavType.LongType
+                }
+            )
+        ) { backStackEntry ->
+            val pinId = backStackEntry.arguments?.getLong("pinId") ?: 0L
+            PinDetailScreen(
+                pinId = pinId,
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
         // 标记列表页面
         composable(Screen.PinList.route) {
             PinListScreen(
                 onPinClick = { pinId ->
-                    navController.navigate(Screen.PinEdit.createRoute(pinId))
+                    navController.navigate(Screen.PinDetail.createRoute(pinId))
                 }
             )
         }
