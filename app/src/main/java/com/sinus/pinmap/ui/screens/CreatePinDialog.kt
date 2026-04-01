@@ -6,7 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.amap.api.maps2d.model.LatLng
+import com.amap.api.maps.model.LatLng
 
 /**
  * 创建标记对话框
@@ -14,6 +14,7 @@ import com.amap.api.maps2d.model.LatLng
 @Composable
 fun CreatePinDialog(
     location: LatLng,
+    address: String,
     onConfirm: (title: String, description: String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -35,6 +36,28 @@ fun CreatePinDialog(
                     text = "创建新标记",
                     style = MaterialTheme.typography.headlineSmall
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 显示地址
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Text(
+                            text = address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 

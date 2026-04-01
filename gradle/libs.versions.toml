@@ -8,10 +8,9 @@ lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.13.0"
 kotlin = "2.2.20"
 composeBom = "2024.09.00"
-amap2d = "6.0.0"
 amapLocation = "6.4.5"
 amapSearch = "9.7.1"
-amap3d = "10.0.900"
+amap3d = "9.1.0"
 room = "2.7.0"
 navigation = "2.8.4"
 ksp = "2.2.20-2.0.3"
@@ -32,7 +31,7 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 # 高德地图 SDK
-amap2d = { group = "com.amap.api", name = "map2d", version.ref = "amap2d" }
+amap3d = { group = "com.amap.api", name = "3dmap", version.ref = "amap3d" }
 amap-location = { group = "com.amap.api", name = "location", version.ref = "amapLocation" }
 amap-search = { group = "com.amap.api", name = "search", version.ref = "amapSearch" }
 # Room 数据库

@@ -9,7 +9,7 @@ import com.amap.api.location.AMapLocation
 import com.amap.api.location.AMapLocationClient
 import com.amap.api.location.AMapLocationClientOption
 import com.amap.api.location.AMapLocationListener
-import com.amap.api.maps2d.model.LatLng
+import com.amap.api.maps.model.LatLng
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -27,9 +27,21 @@ class LocationManager(private val context: Context) {
         // 默认位置：中国中心
         val DEFAULT_LOCATION = LatLng(35.8617, 104.1954)
         const val DEFAULT_ZOOM = 4f
+
+        // 隐私合规状态
+        private var privacyAgreed = false
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    init {
+        // 设置隐私合规（必须在使用 SDK 前调用）
+        if (!privacyAgreed) {
+            AMapLocationClient.updatePrivacyShow(context, true, true)
+            AMapLocationClient.updatePrivacyAgree(context, true)
+            privacyAgreed = true
+        }
+    }
 
     /**
      * 保存位置
@@ -80,7 +92,7 @@ class LocationManager(private val context: Context) {
                 AMapLocationClientOption().apply {
                     locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
                     isOnceLocation = true
-                    isNeedAddress = false
+                    isNeedAddress = true  // 启用地址获取
                     isLocationCacheEnable = false
                     httpTimeOut = 10000
                 }
@@ -112,6 +124,65 @@ class LocationManager(private val context: Context) {
         }
 
         locationClient.startLocation()
+    }
+
+    /**
+     * 获取当前位置的地址信息
+     */
+    suspend fun getCurrentAddress(): Result<String> = suspendCancellableCoroutine { continuation ->
+        if (!hasLocationPermission()) {
+            continuation.resume(Result.failure(SecurityException("缺少位置权限")))
+            return@suspendCancellableCoroutine
+        }
+
+        val locationClient = AMapLocationClient(context.applicationContext).apply {
+            setLocationOption(
+                AMapLocationClientOption().apply {
+                    locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
+                    isOnceLocation = true
+                    isNeedAddress = true
+                    isLocationCacheEnable = false
+                    httpTimeOut = 10000
+                }
+            )
+            setLocationListener(object : AMapLocationListener {
+                override fun onLocationChanged(location: AMapLocation?) {
+                    location?.let {
+                        if (it.errorCode == 0) {
+                            val address = it.address ?: "未知地址"
+                            continuation.resume(Result.success(address))
+                        } else {
+                            continuation.resume(
+                                Result.failure(
+                                    Exception("定位失败: ${it.errorCode} - ${it.errorInfo}")
+                                )
+                            )
+                        }
+                    } ?: continuation.resume(Result.failure(Exception("定位结果为空")))
+
+                    stopLocation()
+                    onDestroy()
+                }
+            })
+        }
+
+        continuation.invokeOnCancellation {
+            locationClient.stopLocation()
+            locationClient.onDestroy()
+        }
+
+        locationClient.startLocation()
+    }
+
+    /**
+     * 根据经纬度获取地址（逆地理编码）
+     * 注意：高德 2D 地图 SDK 不包含地理编码服务，此功能暂时不可用
+     * 如果需要此功能，建议使用定位结果中的地址或升级到 3D 地图 SDK
+     */
+    suspend fun getAddress(lat: Double, lng: Double): Result<String> {
+        // 高德 2D 地图 SDK 不包含地理编码服务
+        // 返回经纬度作为临时解决方案
+        return Result.success("纬度: ${String.format("%.6f", lat)}, 经度: ${String.format("%.6f", lng)}")
     }
 
     /**

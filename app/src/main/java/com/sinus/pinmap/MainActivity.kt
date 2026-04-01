@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
+                    gesturesEnabled = false, // 禁用手势，防止误触
                     drawerContent = {
                         NavigationDrawer(
                             currentRoute = currentRoute,
