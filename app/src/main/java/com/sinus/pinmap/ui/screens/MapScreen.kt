@@ -52,6 +52,7 @@ import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.LocationManager
+import com.sinus.pinmap.ui.viewmodel.MapHolderViewModel
 import com.sinus.pinmap.ui.viewmodel.MapViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -85,6 +86,7 @@ fun MapScreen(
     val fieldTemplateRepository = remember { com.sinus.pinmap.data.repository.FieldTemplateRepository(database.fieldTemplateStore()) }
     val fieldValueRepository = remember { com.sinus.pinmap.data.repository.FieldValueRepository(database.fieldValueStore()) }
     val viewModel: MapViewModel = viewModel { MapViewModel(pinRepository, fieldTemplateRepository, fieldValueRepository) }
+    val mapHolder: MapHolderViewModel = viewModel()
 
     val pins by viewModel.pins.collectAsState()
     val categories by categoryRepository.getAllCategories().collectAsState(initial = emptyList())
@@ -114,11 +116,7 @@ fun MapScreen(
     val locationManager = remember { LocationManager(context) }
 
     // 记住 MapView 实例
-    val mapView = remember {
-        MapView(context).apply {
-            onCreate(null)
-        }
-    }
+    val mapView = mapHolder.init(context)
 
     // 地图是否已初始化
     var isMapInitialized by remember { mutableStateOf(false) }
@@ -177,7 +175,8 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
     // 初始化地图位置
     LaunchedEffect(mapView) {
         if (!isMapInitialized) {
-            val aMap = mapView.map
+            val aMap = mapView.map ?: return@LaunchedEffect
+            mapHolder.setAMap(aMap)
 
             // 基本配置
             aMap.mapType = com.amap.api.maps.AMap.MAP_TYPE_NORMAL
@@ -248,7 +247,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             modifier = Modifier.fillMaxSize(),
             factory = { mapView }
         ) { mapView ->
-            val aMap = mapView.map
+            val aMap = mapHolder.aMap ?: return@AndroidView
 
             // 设置地图点击事件（用于取消选择）
             aMap.setOnMapClickListener { _ ->
@@ -311,7 +310,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                         if (locationResult.isSuccess) {
                             val location = locationResult.getOrNull()
                             if (location != null) {
-                                val aMap = mapView.map
+                                val aMap = mapHolder.aMap ?: return@launch
                                 
                                 // 移除旧的当前位置标记
                                 myLocationMarker?.remove()
@@ -384,7 +383,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                                 // 点击搜索按钮时，跳转到第一个搜索结果
                                 scope.launch {
                                     val pin = searchResults.first()
-                                    val aMap = mapView.map
+                                    val aMap = mapHolder.aMap ?: return@launch
                                     val latLng = LatLng(pin.latitude, pin.longitude)
                                     aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
                                     showSearchResults = false
@@ -434,7 +433,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                                 .clickable {
                                     // 跳转到标记位置
                                     scope.launch {
-                                        val aMap = mapView.map
+                                val aMap = mapHolder.aMap ?: return@launch
                                         val latLng = LatLng(pin.latitude, pin.longitude)
                                         aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
                                         showSearchResults = false
@@ -468,7 +467,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
     // 监听 pins 变化，更新地图标记
     LaunchedEffect(pins) {
-        val aMap = mapView.map
+        val aMap = mapHolder.aMap ?: return@LaunchedEffect
 
         // 清除所有标记
         aMap.clear()
