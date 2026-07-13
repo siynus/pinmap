@@ -1,14 +1,11 @@
-package com.sinus.pinmap.data.dao
+package com.sinus.pinmap.data.store
 
 import androidx.room.*
 import com.sinus.pinmap.data.entity.Category
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 分类数据访问对象
- */
 @Dao
-interface CategoryDao {
+interface CategoryStore {
     @Query("SELECT * FROM categories ORDER BY updatedAt DESC")
     fun getAllCategories(): Flow<List<Category>>
 

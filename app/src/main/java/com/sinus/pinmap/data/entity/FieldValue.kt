@@ -5,15 +5,18 @@ import androidx.room.PrimaryKey
 
 /**
  * 字段值实体类
- * 用于存储标记的具体字段值
+ * fieldTemplateId != null → 模板字段
+ * fieldTemplateId == null → 独立字段（fieldName/fieldType 有值）
  */
 @Entity(tableName = "field_values")
 data class FieldValue(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val pinId: Long, // 关联到标记
-    val fieldTemplateId: Long, // 关联到字段模板
-    val value: String?, // 字段值（对于图片类型，存储附件ID）
+    val pinId: Long,
+    val fieldTemplateId: Long? = null,
+    val fieldName: String? = null,
+    val fieldType: FieldType? = null,
+    val value: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

@@ -142,52 +142,5 @@ fun FieldValueEditor(
                 placeholder = { Text("YYYY-MM-DD") }
             )
         }
-
-        FieldType.SINGLE_CHOICE -> {
-            var expanded by remember { mutableStateOf(false) }
-
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it },
-                modifier = modifier
-            ) {
-                OutlinedTextField(
-                    value = value ?: "",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(fieldTemplate.fieldName) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    // TODO: 解析 options JSON 并显示选项
-                    DropdownMenuItem(
-                        text = { Text("选项1") },
-                        onClick = {
-                            onValueChange("选项1")
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-
-        FieldType.MULTI_CHOICE -> {
-            // TODO: 实现多选功能
-            OutlinedTextField(
-                value = value ?: "",
-                onValueChange = onValueChange,
-                label = { Text(fieldTemplate.fieldName) },
-                modifier = modifier.fillMaxWidth(),
-                readOnly = true,
-                placeholder = { Text("多选功能开发中") }
-            )
-        }
     }
 }

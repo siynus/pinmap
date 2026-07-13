@@ -51,6 +51,9 @@ import com.amap.api.maps.model.MarkerOptions
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.PinRepository
+import com.sinus.pinmap.data.repository.CategoryRepository
+import com.sinus.pinmap.data.repository.FieldTemplateRepository
+import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.ui.utils.LocationManager
 import com.sinus.pinmap.ui.viewmodel.MapViewModel
 import kotlinx.coroutines.async
@@ -79,10 +82,10 @@ fun MapScreen(
 ) {
     val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
-    val pinRepository = remember { PinRepository(database.pinDao()) }
-    val categoryRepository = remember { com.sinus.pinmap.data.repository.CategoryRepository(database.categoryDao()) }
-    val fieldTemplateRepository = remember { com.sinus.pinmap.data.repository.FieldTemplateRepository(database.fieldTemplateDao()) }
-    val fieldValueRepository = remember { com.sinus.pinmap.data.repository.FieldValueRepository(database.fieldValueDao()) }
+    val pinRepository = remember { PinRepository(database.pinStore()) }
+    val categoryRepository = remember { CategoryRepository(database.categoryStore()) }
+    val fieldTemplateRepository = remember { FieldTemplateRepository(database.fieldTemplateStore()) }
+    val fieldValueRepository = remember { FieldValueRepository(database.fieldValueStore()) }
     val viewModel: MapViewModel = viewModel { MapViewModel(pinRepository, fieldTemplateRepository, fieldValueRepository) }
 
     val pins by viewModel.pins.collectAsState()
@@ -95,7 +98,7 @@ fun MapScreen(
     LaunchedEffect(categories) {
         val templatesMap = mutableMapOf<Long, List<com.sinus.pinmap.data.entity.FieldTemplate>>()
         categories.forEach { category ->
-            fieldTemplateRepository.getTemplateFieldsByCategory(category.id).collect { templates ->
+            fieldTemplateRepository.getFieldTemplatesByCategory(category.id).collect { templates ->
                 templatesMap[category.id] = templates
                 categoryTemplates = templatesMap.toMap()
             }
@@ -622,9 +625,8 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 
                 // 加载字段模板和字段值
                 scope.launch {
-                    // 并行加载模板字段和字段值
                     val templatesDeferred = async<List<com.sinus.pinmap.data.entity.FieldTemplate>> {
-                        fieldTemplateRepository.getTemplateFieldsByCategory(pin.categoryId ?: 0L).first()
+                        fieldTemplateRepository.getFieldTemplatesByCategory(pin.categoryId ?: 0L).first()
                     }
                     val valuesDeferred = async<List<com.sinus.pinmap.data.entity.FieldValue>> {
                         fieldValueRepository.getFieldValuesByPin(pin.id).first()
@@ -632,28 +634,31 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                     
                     val templates = templatesDeferred.await()
                     val values = valuesDeferred.await()
-                    val valueMap = values.associateBy { it.fieldTemplateId }
                     
-                    // 加载自定义字段（通过 fieldTemplateId 查询）
-                    val customTemplateIds = values.map { it.fieldTemplateId }.toSet()
-                    val customTemplates = customTemplateIds.mapNotNull { id ->
-                        scope.async {
-                            fieldTemplateRepository.getFieldTemplateById(id)
-                        }.await()
-                    }.filterNotNull().filter { it.categoryId == null } // 只保留自定义字段
-                    
-                    // 合并所有字段模板
-                    val allTemplates = templates + customTemplates
-                    
-                    tempFields = allTemplates.map { template ->
+                    // 模板字段
+                    val templateFields = templates.map { t ->
+                        val v = values.find { it.fieldTemplateId == t.id }
                         com.sinus.pinmap.ui.model.FieldData(
                             id = nextFieldId++,
-                            name = template.fieldName,
-                            type = template.fieldType,
-                            value = valueMap[template.id]?.value ?: "",
-                            isTemplate = template.isTemplate
+                            name = t.fieldName,
+                            type = t.fieldType,
+                            value = v?.value ?: "",
+                            isTemplate = true
                         )
                     }
+                    
+                    // 独立字段
+                    val independentFields = values.filter { it.fieldTemplateId == null }.map { v ->
+                        com.sinus.pinmap.ui.model.FieldData(
+                            id = nextFieldId++,
+                            name = v.fieldName ?: "",
+                            type = v.fieldType ?: com.sinus.pinmap.data.entity.FieldType.TEXT,
+                            value = v.value ?: "",
+                            isTemplate = false
+                        )
+                    }
+                    
+                    tempFields = templateFields + independentFields
                 }
             }
         }
@@ -942,22 +947,31 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                                         
                                         // 保存新字段值
                                         tempFields.forEach { fieldData ->
-                                            // 创建字段模板
-                                            val fieldTemplate = com.sinus.pinmap.data.entity.FieldTemplate(
-                                                categoryId = if (fieldData.isTemplate) category.id else null,
-                                                fieldName = fieldData.name,
-                                                fieldType = fieldData.type,
-                                                isTemplate = fieldData.isTemplate
-                                            )
-                                            val fieldTemplateId = fieldTemplateRepository.insertFieldTemplate(fieldTemplate)
-                                            
-                                            // 创建字段值
-                                            val fieldValue = com.sinus.pinmap.data.entity.FieldValue(
-                                                pinId = selectedPin!!.id,
-                                                fieldTemplateId = fieldTemplateId,
-                                                value = fieldData.value.ifBlank { null }
-                                            )
-                                            fieldValueRepository.insertFieldValue(fieldValue)
+                                            if (fieldData.isTemplate) {
+                                                val template = com.sinus.pinmap.data.entity.FieldTemplate(
+                                                    categoryId = category.id,
+                                                    fieldName = fieldData.name,
+                                                    fieldType = fieldData.type
+                                                )
+                                                val templateId = fieldTemplateRepository.insertFieldTemplate(template)
+                                                fieldValueRepository.insertFieldValue(
+                                                    com.sinus.pinmap.data.entity.FieldValue(
+                                                        pinId = selectedPin!!.id,
+                                                        fieldTemplateId = templateId,
+                                                        value = fieldData.value.ifBlank { null }
+                                                    )
+                                                )
+                                            } else {
+                                                fieldValueRepository.insertFieldValue(
+                                                    com.sinus.pinmap.data.entity.FieldValue(
+                                                        pinId = selectedPin!!.id,
+                                                        fieldTemplateId = null,
+                                                        fieldName = fieldData.name,
+                                                        fieldType = fieldData.type,
+                                                        value = fieldData.value.ifBlank { null }
+                                                    )
+                                                )
+                                            }
                                         }
                                     }
                                     

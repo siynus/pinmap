@@ -30,7 +30,7 @@ fun CategoryListScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
-    val categoryRepository = remember { CategoryRepository(database.categoryDao()) }
+    val categoryRepository = remember { CategoryRepository(database.categoryStore()) }
     val viewModel: CategoryViewModel = viewModel { CategoryViewModel(categoryRepository) }
 
     val categories by viewModel.categories.collectAsState()

@@ -20,9 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -30,19 +27,17 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import coil.compose.rememberAsyncImagePainter
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
+import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
+import coil.compose.rememberAsyncImagePainter
 import com.sinus.pinmap.data.entity.FieldTemplate
 import com.sinus.pinmap.ui.viewmodel.PinDetailViewModel
-import com.sinus.pinmap.ui.screens.FieldValueEditor
-import com.sinus.pinmap.ui.screens.CreateFieldTemplateDialog
-import com.sinus.pinmap.ui.screens.FieldValueEditor
 
 /**
  * 标记详情页面
@@ -56,9 +51,9 @@ fun PinDetailScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
-    val pinRepository = remember { PinRepository(database.pinDao()) }
-    val fieldTemplateRepository = remember { FieldTemplateRepository(database.fieldTemplateDao()) }
-    val fieldValueRepository = remember { FieldValueRepository(database.fieldValueDao()) }
+    val pinRepository = remember { PinRepository(database.pinStore()) }
+    val fieldTemplateRepository = remember { FieldTemplateRepository(database.fieldTemplateStore()) }
+    val fieldValueRepository = remember { FieldValueRepository(database.fieldValueStore()) }
 
     val viewModel: PinDetailViewModel = viewModel(
         key = "pin_detail_$pinId",
@@ -93,8 +88,8 @@ fun PinDetailScreen(
     LaunchedEffect(editingFieldValues) {
         kotlinx.coroutines.delay(500)
         if (editingFieldValues.isNotEmpty()) {
-            editingFieldValues.forEach { (fieldTemplateId, value) ->
-                viewModel.updateFieldValue(fieldTemplateId, value)
+            editingFieldValues.forEach { (key, value) ->
+                viewModel.updateFieldValue(key, value)
             }
             editingFieldValues = emptyMap()
         }
@@ -285,18 +280,13 @@ fun PinDetailScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
-                            // 只有自定义字段才显示删除按钮
-                            if (!fieldTemplate.isTemplate || fieldTemplate.categoryId == null) {
-                                IconButton(
-                                    onClick = {
-                                        fieldToDelete = fieldTemplate
-                                    },
-                                    colors = IconButtonDefaults.iconButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.error
-                                    )
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "删除字段")
-                                }
+                            IconButton(
+                                onClick = { fieldToDelete = fieldTemplate },
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "删除字段")
                             }
                         }
                     }
@@ -309,7 +299,11 @@ fun PinDetailScreen(
     if (showAddFieldDialog) {
         CreateFieldTemplateDialog(
             onConfirm = { fieldName, fieldType, isTemplate ->
-                viewModel.createFieldTemplate(fieldName, fieldType, isTemplate)
+                if (isTemplate) {
+                    viewModel.createTemplateField(fieldName, fieldType)
+                } else {
+                    viewModel.createIndependentField(fieldName, fieldType)
+                }
                 showAddFieldDialog = false
             },
             onDismiss = { showAddFieldDialog = false }

@@ -9,31 +9,23 @@ import com.sinus.pinmap.data.repository.PinRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-/**
- * 标记列表页面 ViewModel
- */
 class PinListViewModel(
     private val pinRepository: PinRepository,
     private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
-    // 所有标记
     private val _pins = MutableStateFlow<List<Pin>>(emptyList())
     val pins: StateFlow<List<Pin>> = _pins.asStateFlow()
 
-    // 所有分类
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
     val categories: StateFlow<List<Category>> = _categories.asStateFlow()
 
-    // 搜索关键词
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    // 选中的分类ID（null表示所有分类）
     private val _selectedCategoryId = MutableStateFlow<Long?>(null)
     val selectedCategoryId: StateFlow<Long?> = _selectedCategoryId.asStateFlow()
 
-    // 过滤后的标记
     val filteredPins: StateFlow<List<Pin>> = combine(
         _pins,
         _searchQuery,
@@ -41,12 +33,10 @@ class PinListViewModel(
     ) { pins, query, categoryId ->
         var result = pins
 
-        // 按分类筛选
         if (categoryId != null) {
             result = result.filter { it.categoryId == categoryId }
         }
 
-        // 按搜索关键词筛选
         if (query.isNotBlank()) {
             result = result.filter {
                 it.title.contains(query, ignoreCase = true) ||

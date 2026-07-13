@@ -1,14 +1,11 @@
-package com.sinus.pinmap.data.dao
+package com.sinus.pinmap.data.store
 
 import androidx.room.*
 import com.sinus.pinmap.data.entity.Attachment
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 附件数据访问对象
- */
 @Dao
-interface AttachmentDao {
+interface AttachmentStore {
     @Query("SELECT * FROM attachments WHERE pinId = :pinId")
     fun getAttachmentsByPinId(pinId: Long): Flow<List<Attachment>>
 

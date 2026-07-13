@@ -1,14 +1,11 @@
-package com.sinus.pinmap.data.dao
+package com.sinus.pinmap.data.store
 
 import androidx.room.*
 import com.sinus.pinmap.data.entity.FieldTemplate
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 字段模板数据访问对象
- */
 @Dao
-interface FieldTemplateDao {
+interface FieldTemplateStore {
     @Query("SELECT * FROM field_templates ORDER BY createdAt DESC")
     fun getAllFieldTemplates(): Flow<List<FieldTemplate>>
 
@@ -17,12 +14,6 @@ interface FieldTemplateDao {
 
     @Query("SELECT * FROM field_templates WHERE categoryId = :categoryId ORDER BY createdAt DESC")
     fun getFieldTemplatesByCategory(categoryId: Long): Flow<List<FieldTemplate>>
-
-    @Query("SELECT * FROM field_templates WHERE categoryId = :categoryId AND isTemplate = 1 ORDER BY createdAt DESC")
-    fun getTemplateFieldsByCategory(categoryId: Long): Flow<List<FieldTemplate>>
-
-    @Query("SELECT * FROM field_templates WHERE categoryId IS NULL ORDER BY createdAt DESC")
-    fun getCustomFieldTemplates(): Flow<List<FieldTemplate>>
 
     @Insert
     suspend fun insertFieldTemplate(fieldTemplate: FieldTemplate): Long

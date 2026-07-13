@@ -1,14 +1,11 @@
-package com.sinus.pinmap.data.dao
+package com.sinus.pinmap.data.store
 
 import androidx.room.*
 import com.sinus.pinmap.data.entity.FieldValue
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 字段值数据访问对象
- */
 @Dao
-interface FieldValueDao {
+interface FieldValueStore {
     @Query("SELECT * FROM field_values ORDER BY createdAt DESC")
     fun getAllFieldValues(): Flow<List<FieldValue>>
 

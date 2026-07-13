@@ -9,9 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * 分类页面 ViewModel
- */
 class CategoryViewModel(
     private val categoryRepository: CategoryRepository
 ) : ViewModel() {

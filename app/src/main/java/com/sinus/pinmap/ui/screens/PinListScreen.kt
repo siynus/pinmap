@@ -36,8 +36,8 @@ fun PinListScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
-    val pinRepository = remember { PinRepository(database.pinDao()) }
-    val categoryRepository = remember { CategoryRepository(database.categoryDao()) }
+    val pinRepository = remember { PinRepository(database.pinStore()) }
+    val categoryRepository = remember { CategoryRepository(database.categoryStore()) }
     val viewModel: PinListViewModel = viewModel { PinListViewModel(pinRepository, categoryRepository) }
 
     val pins by viewModel.filteredPins.collectAsState()

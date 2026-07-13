@@ -1,14 +1,11 @@
-package com.sinus.pinmap.data.dao
+package com.sinus.pinmap.data.store
 
 import androidx.room.*
 import com.sinus.pinmap.data.entity.Pin
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 标记数据访问对象
- */
 @Dao
-interface PinDao {
+interface PinStore {
     @Query("SELECT * FROM pins ORDER BY updatedAt DESC")
     fun getAllPins(): Flow<List<Pin>>
 

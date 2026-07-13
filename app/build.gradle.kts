@@ -21,7 +21,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // 性能优化配置
         renderscriptSupportModeEnabled = true
     }
 
@@ -67,7 +66,6 @@ dependencies {
     // 高德地图 SDK
     implementation(libs.amap3d)
     implementation(libs.amap.location)
-    // implementation(libs.amap.search) // 暂时注释掉，解决重复类问题
 
     // Room 数据库
     implementation(libs.room.runtime)

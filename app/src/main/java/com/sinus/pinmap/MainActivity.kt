@@ -11,11 +11,8 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.sinus.pinmap.data.database.PinmapDatabase
-import com.sinus.pinmap.data.repository.*
 import com.sinus.pinmap.ui.components.NavigationDrawer
 import com.sinus.pinmap.ui.navigation.PinmapNavGraph
 import com.sinus.pinmap.ui.theme.PinmapTheme
@@ -26,14 +23,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-        // 初始化数据库
-        val database = PinmapDatabase.getDatabase(this)
-        val pinRepository = PinRepository(database.pinDao())
-        val categoryRepository = CategoryRepository(database.categoryDao())
-        val customFieldRepository = CustomFieldRepository(database.customFieldDao())
-        val attachmentRepository = AttachmentRepository(database.attachmentDao())
-        val offlineMapRepository = OfflineMapRepository(database.offlineMapDao())
 
         setContent {
             PinmapTheme {
@@ -51,7 +40,6 @@ class MainActivity : ComponentActivity() {
                         NavigationDrawer(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
-                                // 懒加载机制：如果是当前路由则不重新导航
                                 if (route != currentRoute) {
                                     scope.launch {
                                         drawerState.snapTo(DrawerValue.Closed)
@@ -63,7 +51,6 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 } else {
-                                    // 关闭抽屉但不重新导航
                                     scope.launch {
                                         drawerState.snapTo(DrawerValue.Closed)
                                     }

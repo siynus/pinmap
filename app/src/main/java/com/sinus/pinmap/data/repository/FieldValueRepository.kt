@@ -1,44 +1,43 @@
 package com.sinus.pinmap.data.repository
 
-import com.sinus.pinmap.data.dao.FieldValueDao
+import com.sinus.pinmap.data.store.FieldValueStore
 import com.sinus.pinmap.data.entity.FieldValue
 import kotlinx.coroutines.flow.Flow
-
 /**
  * 字段值数据仓库
  */
-class FieldValueRepository(private val fieldValueDao: FieldValueDao) {
-    fun getAllFieldValues(): Flow<List<FieldValue>> = fieldValueDao.getAllFieldValues()
+class FieldValueRepository(private val fieldValueStore: FieldValueStore) {
+    fun getAllFieldValues(): Flow<List<FieldValue>> = fieldValueStore.getAllFieldValues()
 
-    suspend fun getFieldValueById(id: Long): FieldValue? = fieldValueDao.getFieldValueById(id)
+    suspend fun getFieldValueById(id: Long): FieldValue? = fieldValueStore.getFieldValueById(id)
 
     fun getFieldValuesByPin(pinId: Long): Flow<List<FieldValue>> =
-        fieldValueDao.getFieldValuesByPin(pinId)
+        fieldValueStore.getFieldValuesByPin(pinId)
 
     suspend fun getFieldValue(pinId: Long, fieldTemplateId: Long): FieldValue? =
-        fieldValueDao.getFieldValue(pinId, fieldTemplateId)
+        fieldValueStore.getFieldValue(pinId, fieldTemplateId)
 
     fun getFieldValuesByTemplate(fieldTemplateId: Long): Flow<List<FieldValue>> =
-        fieldValueDao.getFieldValuesByTemplate(fieldTemplateId)
+        fieldValueStore.getFieldValuesByTemplate(fieldTemplateId)
 
     suspend fun insertFieldValue(fieldValue: FieldValue): Long =
-        fieldValueDao.insertFieldValue(fieldValue)
+        fieldValueStore.insertFieldValue(fieldValue)
 
     suspend fun updateFieldValue(fieldValue: FieldValue) =
-        fieldValueDao.updateFieldValue(fieldValue)
+        fieldValueStore.updateFieldValue(fieldValue)
 
     suspend fun deleteFieldValue(fieldValue: FieldValue) =
-        fieldValueDao.deleteFieldValue(fieldValue)
+        fieldValueStore.deleteFieldValue(fieldValue)
 
     suspend fun deleteFieldValueById(id: Long) =
-        fieldValueDao.deleteFieldValueById(id)
+        fieldValueStore.deleteFieldValueById(id)
 
     suspend fun deleteFieldValueByPinAndTemplate(pinId: Long, fieldTemplateId: Long) =
-        fieldValueDao.deleteFieldValueByPinAndTemplate(pinId, fieldTemplateId)
+        fieldValueStore.deleteFieldValueByPinAndTemplate(pinId, fieldTemplateId)
 
     suspend fun deleteFieldValuesByPin(pinId: Long) =
-        fieldValueDao.deleteFieldValuesByPin(pinId)
+        fieldValueStore.deleteFieldValuesByPin(pinId)
 
     suspend fun deleteFieldValuesByTemplate(fieldTemplateId: Long) =
-        fieldValueDao.deleteFieldValuesByTemplate(fieldTemplateId)
+        fieldValueStore.deleteFieldValuesByTemplate(fieldTemplateId)
 }

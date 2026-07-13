@@ -1,14 +1,11 @@
-package com.sinus.pinmap.data.dao
+package com.sinus.pinmap.data.store
 
 import androidx.room.*
 import com.sinus.pinmap.data.entity.OfflineMap
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 离线地图数据访问对象
- */
 @Dao
-interface OfflineMapDao {
+interface OfflineMapStore {
     @Query("SELECT * FROM offline_maps ORDER BY downloadDate DESC")
     fun getAllOfflineMaps(): Flow<List<OfflineMap>>
 
