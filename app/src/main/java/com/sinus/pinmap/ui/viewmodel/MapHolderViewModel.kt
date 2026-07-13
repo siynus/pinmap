@@ -13,6 +13,9 @@ class MapHolderViewModel : ViewModel() {
     private var _aMap: AMap? = null
     val aMap: AMap? get() = _aMap
 
+    var isInitialized = false
+        private set
+
     fun init(context: Context): MapView {
         val mv = _mapView
         if (mv != null) return mv
@@ -24,6 +27,10 @@ class MapHolderViewModel : ViewModel() {
 
     fun setAMap(map: AMap) {
         _aMap = map
+    }
+
+    fun markInitialized() {
+        isInitialized = true
     }
 
     override fun onCleared() {

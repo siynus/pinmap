@@ -120,9 +120,6 @@ fun MapScreen(
     // 记住 MapView 实例
     val mapView = mapHolder.init(context)
 
-    // 地图是否已初始化
-    var isMapInitialized by remember { mutableStateOf(false) }
-
 var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
     // 位置权限请求
@@ -176,7 +173,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
     // 初始化地图位置
     LaunchedEffect(mapView) {
-        if (!isMapInitialized) {
+        if (!mapHolder.isInitialized) {
             val aMap = mapView.map ?: return@LaunchedEffect
             mapHolder.setAMap(aMap)
 
@@ -203,7 +200,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
             // 移动地图到目标位置
             aMap.moveCamera(CameraUpdateFactory.newLatLngZoom(targetLocation, zoom))
-            isMapInitialized = true
+            mapHolder.markInitialized()
         }
     }
 

@@ -3,6 +3,7 @@ package com.sinus.pinmap.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -21,11 +22,13 @@ import com.sinus.pinmap.ui.screens.PinListScreen
 fun PinmapNavGraph(
     navController: NavHostController,
     startDestination: String = Screen.Map.route,
+    modifier: Modifier = Modifier,
     onOpenDrawer: () -> Unit = {}
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination,
+        modifier = modifier,
         enterTransition = {
             slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(300))
         },

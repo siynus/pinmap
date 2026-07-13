@@ -9,11 +9,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -75,7 +83,7 @@ fun PinEditScreen(
     var editingValues by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
     var editingImages by remember { mutableStateOf<Map<Long, List<String>>>(emptyMap()) }
     var showAddFieldDialog by remember { mutableStateOf(false) }
-    var viewingImageUrl by remember { mutableStateOf<String?>(null) }
+    var viewingImages by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
 
     LaunchedEffect(Unit) {
         categories = categoryRepository.getAllCategories().first()
@@ -233,7 +241,11 @@ fun PinEditScreen(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             items(images) { img ->
-                                                Box(modifier = Modifier.size(120.dp).clickable { viewingImageUrl = img }) {
+                                                Box(modifier = Modifier.size(120.dp).clickable {
+                                                    val allImages = getImages(template)
+                                                    val idx = allImages.indexOf(img)
+                                                    viewingImages = allImages to idx
+                                                }) {
                                                     Image(
                                                         painter = coil.compose.rememberAsyncImagePainter(img),
                                                         contentDescription = null,
@@ -346,14 +358,65 @@ fun PinEditScreen(
         )
     }
 
-    viewingImageUrl?.let { url ->
-        Dialog(onDismissRequest = { viewingImageUrl = null }) {
-            Box(modifier = Modifier.fillMaxSize().clickable { viewingImageUrl = null }) {
-                Image(painter = coil.compose.rememberAsyncImagePainter(url), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
-                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).size(48.dp).clickable { viewingImageUrl = null }
-                ) { Icon(Icons.Default.Close, contentDescription = "关闭", modifier = Modifier.padding(12.dp)) }
+    viewingImages?.let { (images, startIndex) ->
+        val pagerState = rememberPagerState(
+            initialPage = startIndex + Int.MAX_VALUE / 2,
+            pageCount = { Int.MAX_VALUE }
+        )
+        Dialog(
+            onDismissRequest = { viewingImages = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val imageUrl = images[page % images.size]
+                var scale by remember { mutableFloatStateOf(1f) }
+                var offsetX by remember { mutableFloatStateOf(0f) }
+                var offsetY by remember { mutableFloatStateOf(0f) }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                var multi = false
+                                do {
+                                    val event = awaitPointerEvent()
+                                    if (event.changes.size >= 2) {
+                                        if (!multi) {
+                                            multi = true
+                                            event.changes.forEach { it.consume() }
+                                        }
+                                        val ch = event.changes
+                                        val currDist = (ch[0].position - ch[1].position).getDistance()
+                                        val prevDist = (ch[0].previousPosition - ch[1].previousPosition).getDistance()
+                                        val zoom = if (prevDist > 0f) currDist / prevDist else 1f
+                                        scale = (scale * zoom).coerceIn(1f, 5f)
+                                        val cx = ch.fold(0f) { a, c -> a + c.position.x } / ch.size
+                                        val cy = ch.fold(0f) { a, c -> a + c.position.y } / ch.size
+                                        val pcx = ch.fold(0f) { a, c -> a + c.previousPosition.x } / ch.size
+                                        val pcy = ch.fold(0f) { a, c -> a + c.previousPosition.y } / ch.size
+                                        offsetX = (offsetX + cx - pcx).coerceIn(-(size.width * (scale - 1)) / 2f, (size.width * (scale - 1)) / 2f)
+                                        offsetY = (offsetY + cy - pcy).coerceIn(-(size.height * (scale - 1)) / 2f, (size.height * (scale - 1)) / 2f)
+                                    }
+                                } while (event.changes.any { it.pressed })
+                            }
+                        }
+                        .graphicsLayer {
+                            scaleX = scale; scaleY = scale
+                            translationX = offsetX; translationY = offsetY
+                        }
+                ) {
+                    Image(
+                        painter = coil.compose.rememberAsyncImagePainter(imageUrl),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             }
         }
     }
