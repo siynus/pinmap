@@ -219,16 +219,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 Lifecycle.Event.ON_PAUSE -> {
                     try {
                         mapView.onPause()
-                    } catch (e: Exception) {
-                        // 忽略异常
-                    }
-                }
-                Lifecycle.Event.ON_DESTROY -> {
-                    try {
-                        mapView.onDestroy()
-                    } catch (e: Exception) {
-                        // 忽略异常
-                    }
+                    } catch (e: Exception) { }
                 }
                 else -> {}
             }
@@ -295,7 +286,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
         }
 
         // 定位按钮 - 放在搜索框右上方
-        FloatingActionButton(
+        SmallFloatingActionButton(
             onClick = {
                 if (!hasLocationPermission) {
                     // 没有权限，请求权限
@@ -336,7 +327,8 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 80.dp)
+                .padding(end = 16.dp, bottom = 80.dp),
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
         }
@@ -357,7 +349,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {

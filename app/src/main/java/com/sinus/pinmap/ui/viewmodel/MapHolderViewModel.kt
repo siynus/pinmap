@@ -34,7 +34,12 @@ class MapHolderViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        _mapView?.onDestroy()
+        try {
+            _mapView?.onPause()
+            _mapView?.onDestroy()
+        } catch (_: Exception) { }
+        _mapView = null
+        _aMap = null
         super.onCleared()
     }
 }
