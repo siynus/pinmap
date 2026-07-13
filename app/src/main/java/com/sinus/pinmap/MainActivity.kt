@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
-                    gesturesEnabled = currentRoute != "map",
+                    gesturesEnabled = true,
                     drawerContent = {
                         NavigationDrawer(
                             currentRoute = currentRoute,
@@ -77,7 +77,10 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         ) { paddingValues ->
-                            PinmapNavGraph(navController = navController)
+                            PinmapNavGraph(
+                                navController = navController,
+                                onOpenDrawer = { scope.launch { drawerState.open() } }
+                            )
                         }
                     }
                 }

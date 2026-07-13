@@ -72,7 +72,6 @@ fun PinEditScreen(
     var fieldValues by remember { mutableStateOf<Map<Long, FieldValue>>(emptyMap()) }
     var editingValues by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
     var showAddFieldDialog by remember { mutableStateOf(false) }
-    var fieldToDelete by remember { mutableStateOf<Long?>(null) }
     var currentFieldKey by remember { mutableStateOf<Long?>(null) }
     var viewingImageUrl by remember { mutableStateOf<String?>(null) }
 
@@ -221,13 +220,9 @@ fun PinEditScreen(
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium)
-                                IconButton(onClick = { fieldToDelete = template.id }, modifier = Modifier.size(24.dp)) {
-                                    Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             when (template.fieldType) {
@@ -330,32 +325,6 @@ fun PinEditScreen(
                 showAddFieldDialog = false
             },
             onDismiss = { showAddFieldDialog = false }
-        )
-    }
-
-    fieldToDelete?.let { key ->
-        AlertDialog(
-            onDismissRequest = { fieldToDelete = null },
-            title = { Text("删除字段") },
-            text = { Text("确定要删除这个字段吗？") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            val fv = fieldValues[key]
-                            if (fv != null) {
-                                valueRepo.deleteFieldValueById(fv.id)
-                                if (fv.fieldTemplateId != null) {
-                                    templateRepo.deleteFieldTemplateById(fv.fieldTemplateId)
-                                }
-                            }
-                        }
-                        fieldToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("删除") }
-            },
-            dismissButton = { TextButton(onClick = { fieldToDelete = null }) { Text("取消") } }
         )
     }
 

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -77,7 +78,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 fun MapScreen(
     modifier: Modifier = Modifier,
     onNavigateToEdit: (Long) -> Unit = {},
-    onNavigateToCreate: (Double, Double) -> Unit = { _, _ -> }
+    onNavigateToCreate: (Double, Double) -> Unit = { _, _ -> },
+    onOpenDrawer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
@@ -247,11 +249,14 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             modifier = Modifier.fillMaxSize(),
             factory = { mapView }
         ) { mapView ->
-            val aMap = mapHolder.aMap ?: return@AndroidView
+        }
+
+        // 设置地图事件监听
+        LaunchedEffect(mapHolder.aMap) {
+            val aMap = mapHolder.aMap ?: return@LaunchedEffect
 
             // 设置地图点击事件（用于取消选择）
             aMap.setOnMapClickListener { _ ->
-                // 点击地图空白处取消选择
                 viewModel.clearSelectedPin()
             }
 
@@ -274,22 +279,26 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
             // 监听地图移动，保存位置
             aMap.setOnCameraChangeListener(object : com.amap.api.maps.AMap.OnCameraChangeListener {
-                override fun onCameraChange(cameraPosition: com.amap.api.maps.model.CameraPosition?) {
-                    // 实时移动中
-                }
-
+                override fun onCameraChange(cameraPosition: com.amap.api.maps.model.CameraPosition?) {}
                 override fun onCameraChangeFinish(cameraPosition: com.amap.api.maps.model.CameraPosition?) {
                     cameraPosition?.let {
                         scope.launch {
-                            locationManager.saveLastLocation(
-                                it.target.latitude,
-                                it.target.longitude,
-                                it.zoom
-                            )
+                            locationManager.saveLastLocation(it.target.latitude, it.target.longitude, it.zoom)
                         }
                     }
                 }
             })
+        }
+
+        // 菜单按钮 - 放在左下角
+        SmallFloatingActionButton(
+            onClick = onOpenDrawer,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 16.dp, bottom = 80.dp),
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Icon(Icons.Default.Menu, contentDescription = "菜单")
         }
 
         // 定位按钮 - 放在搜索框右上方

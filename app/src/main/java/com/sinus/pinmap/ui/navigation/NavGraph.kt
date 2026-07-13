@@ -20,7 +20,8 @@ import com.sinus.pinmap.ui.screens.PinListScreen
 @Composable
 fun PinmapNavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.Map.route
+    startDestination: String = Screen.Map.route,
+    onOpenDrawer: () -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -45,7 +46,8 @@ fun PinmapNavGraph(
                 },
                 onNavigateToCreate = { lat, lng ->
                     navController.navigate(Screen.PinEdit.createRoute(null, lat, lng))
-                }
+                },
+                onOpenDrawer = onOpenDrawer
             )
         }
 

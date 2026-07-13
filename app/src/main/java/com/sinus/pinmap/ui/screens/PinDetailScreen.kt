@@ -77,7 +77,6 @@ fun PinDetailScreen(
 
     val scope = rememberCoroutineScope()
 
-    var fieldToDelete by remember { mutableStateOf<FieldTemplate?>(null) }
     var currentEditingFieldId by remember { mutableStateOf<Long?>(null) }
     var viewingImageUrl by remember { mutableStateOf<String?>(null) }
     
@@ -280,48 +279,11 @@ fun PinDetailScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
-                            IconButton(
-                                onClick = { fieldToDelete = fieldTemplate },
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                )
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "删除字段")
-                            }
                         }
                     }
                 }
             }
         }
-    }
-
-    // 删除字段确认对话框
-    fieldToDelete?.let { fieldTemplate ->
-        AlertDialog(
-            onDismissRequest = { fieldToDelete = null },
-            title = { Text("删除字段") },
-            text = {
-                Text("确定要删除字段「${fieldTemplate.fieldName}」吗？")
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteFieldValue(fieldTemplate.id)
-                        fieldToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("删除")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { fieldToDelete = null }) {
-                    Text("取消")
-                }
-            }
-        )
     }
 
     // 图片查看对话框
