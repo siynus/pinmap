@@ -41,7 +41,7 @@
         <!-- 高德地图 Key -->
         <meta-data
             android:name="com.amap.api.v2.apikey"
-            android:value="REMOVED" />
+            android:value="${MAPS_API_KEY}" />
         
         <activity
             android:name=".MainActivity"
