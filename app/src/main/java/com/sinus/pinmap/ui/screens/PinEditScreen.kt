@@ -11,7 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -69,10 +71,10 @@ fun PinEditScreen(
     var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
     var expanded by remember { mutableStateOf(false) }
     var templates by remember { mutableStateOf<List<FieldTemplate>>(emptyList()) }
-    var fieldValues by remember { mutableStateOf<Map<Long, FieldValue>>(emptyMap()) }
+    var fieldValues by remember { mutableStateOf<Map<Long, List<FieldValue>>>(emptyMap()) }
     var editingValues by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
+    var editingImages by remember { mutableStateOf<Map<Long, List<String>>>(emptyMap()) }
     var showAddFieldDialog by remember { mutableStateOf(false) }
-    var currentFieldKey by remember { mutableStateOf<Long?>(null) }
     var viewingImageUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -85,7 +87,7 @@ fun PinEditScreen(
                     templates = templateRepo.getFieldTemplatesByCategory(cat.id).first()
                 }
                 val values = valueRepo.getFieldValuesByPin(pinId).first()
-                fieldValues = values.associateBy { it.fieldTemplateId ?: it.id }
+                fieldValues = values.groupBy { it.fieldTemplateId ?: it.id }
             }
         }
     }
@@ -96,6 +98,7 @@ fun PinEditScreen(
             if (isCreate) {
                 fieldValues = emptyMap()
                 editingValues = emptyMap()
+                editingImages = emptyMap()
             }
         }
     }
@@ -114,11 +117,13 @@ fun PinEditScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { hasImagePermission = it }
 
+    var pendingImageTemplateId by remember { mutableStateOf<Long?>(null) }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let { selectedUri ->
-            currentFieldKey?.let { key ->
+            pendingImageTemplateId?.let { tid ->
                 scope.launch {
                     try {
                         val timeStamp = System.currentTimeMillis()
@@ -129,12 +134,20 @@ fun PinEditScreen(
                         context.contentResolver.openInputStream(selectedUri)?.use { input ->
                             FileOutputStream(imageFile).use { output -> input.copyTo(output) }
                         }
-                        editingValues = editingValues + (key to Uri.fromFile(imageFile).toString())
+                        val uriStr = Uri.fromFile(imageFile).toString()
+                        val current = editingImages[tid] ?: emptyList()
+                        editingImages = editingImages + (tid to (current + uriStr))
                     } catch (e: Exception) { e.printStackTrace() }
                 }
             }
-            currentFieldKey = null
+            pendingImageTemplateId = null
         }
+    }
+
+    fun getImages(template: FieldTemplate): List<String> {
+        val edited = editingImages[template.id]
+        if (edited != null) return edited
+        return fieldValues[template.id]?.map { it.value ?: "" } ?: emptyList()
     }
 
     Scaffold(
@@ -150,52 +163,32 @@ fun PinEditScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            modifier = Modifier.fillMaxSize().padding(padding)
         ) {
             LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(16.dp),
+                modifier = Modifier.weight(1f).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = { Text("标题") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("标题") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
 
                 item {
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = it }
-                    ) {
+                    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
-                            value = selectedCategory?.name ?: "",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("分类") },
+                            value = selectedCategory?.name ?: "", onValueChange = {}, readOnly = true, label = { Text("分类") },
                             trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth().menuAnchor()
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             categories.forEach { category ->
                                 DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                            Box(modifier = Modifier.size(24.dp).background(Color(category.color), CircleShape))
-                                            Text(category.name)
-                                        }
-                                    },
+                                    text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Box(modifier = Modifier.size(24.dp).background(Color(category.color), CircleShape))
+                                        Text(category.name)
+                                    }},
                                     onClick = { selectedCategory = category; expanded = false },
-                                    leadingIcon = if (selectedCategory?.id == category.id) {
-                                        { Icon(Icons.Default.Check, contentDescription = null) }
-                                    } else null
+                                    leadingIcon = if (selectedCategory?.id == category.id) { { Icon(Icons.Default.Check, contentDescription = null) } } else null
                                 )
                             }
                         }
@@ -203,64 +196,78 @@ fun PinEditScreen(
                 }
 
                 if (isCreate && selectedCategory == null) {
-                    item {
-                        Text("请选择一个分类", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                    }
+                    item { Text("请选择一个分类", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 }
 
                 if (templates.isNotEmpty()) {
-                    item {
-                        Text("字段", style = MaterialTheme.typography.titleSmall)
-                    }
+                    item { Text("字段", style = MaterialTheme.typography.titleSmall) }
                 }
 
                 items(templates) { template ->
-                    val value = editingValues[template.id] ?: fieldValues[template.id]?.value ?: ""
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium)
-                            }
+                            Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium)
                             Spacer(modifier = Modifier.height(8.dp))
                             when (template.fieldType) {
                                 FieldType.TEXT -> {
-                                    OutlinedTextField(value = value, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                                    val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
+                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
                                 }
                                 FieldType.NUMBER -> {
-                                    OutlinedTextField(value = value, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                                    val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
+                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                                 }
                                 FieldType.DATE -> {
-                                    OutlinedTextField(value = value, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("YYYY-MM-DD") })
+                                    val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
+                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("YYYY-MM-DD") })
                                 }
                                 FieldType.IMAGE -> {
-                                    if (value.isNotBlank()) {
-                                        Box(modifier = Modifier.fillMaxWidth().clickable { viewingImageUrl = value }) {
-                                            Image(
-                                                painter = coil.compose.rememberAsyncImagePainter(value),
-                                                contentDescription = null,
-                                                modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 400.dp),
-                                                contentScale = ContentScale.Fit
-                                            )
+                                    val images = getImages(template)
+                                    if (images.isNotEmpty()) {
+                                        val rowState = rememberLazyListState()
+                                        LaunchedEffect(images.size) {
+                                            if (images.isNotEmpty()) rowState.animateScrollToItem(images.size - 1)
                                         }
-                                    } else {
-                                        OutlinedButton(
-                                            onClick = {
-                                                if (hasImagePermission) {
-                                                    currentFieldKey = template.id
-                                                    imagePickerLauncher.launch("image/*")
-                                                } else {
-                                                    imagePermissionLauncher.launch(
-                                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES
-                                                        else Manifest.permission.READ_EXTERNAL_STORAGE
+                                        LazyRow(
+                                            state = rowState,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(images) { img ->
+                                                Box(modifier = Modifier.size(120.dp).clickable { viewingImageUrl = img }) {
+                                                    Image(
+                                                        painter = coil.compose.rememberAsyncImagePainter(img),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Crop
                                                     )
+                                                    Surface(
+                                                        color = MaterialTheme.colorScheme.error,
+                                                        shape = CircleShape,
+                                                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
+                                                            editingImages = editingImages + (template.id to (images - img))
+                                                        }
+                                                    ) {
+                                                        Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.padding(4.dp))
+                                                    }
                                                 }
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { Text("选择图片") }
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
                                     }
+                                    OutlinedButton(
+                                        onClick = {
+                                            if (hasImagePermission) {
+                                                pendingImageTemplateId = template.id
+                                                imagePickerLauncher.launch("image/*")
+                                            } else {
+                                                imagePermissionLauncher.launch(
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES
+                                                    else Manifest.permission.READ_EXTERNAL_STORAGE
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text(if (images.isEmpty()) "选择图片" else "添加图片") }
                                 }
                             }
                         }
@@ -268,10 +275,7 @@ fun PinEditScreen(
                 }
 
                 item {
-                    OutlinedButton(
-                        onClick = { showAddFieldDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("添加字段") }
+                    OutlinedButton(onClick = { showAddFieldDialog = true }, modifier = Modifier.fillMaxWidth()) { Text("添加字段") }
                 }
             }
 
@@ -287,22 +291,37 @@ fun PinEditScreen(
                             }
                             pinId
                         }
-                        val allValues = templates.map { template ->
-                            val v = editingValues[template.id] ?: fieldValues[template.id]?.value ?: ""
-                            val existing = fieldValues[template.id]
-                            if (existing != null) {
-                                existing.copy(value = v)
-                            } else {
-                                FieldValue(pinId = id, fieldTemplateId = template.id, value = v)
-                            }
-                        }
-                        valueRepo.getFieldValuesByPin(id).first().forEach { fv ->
+                        // Delete removed template values
+                        val existingValues = valueRepo.getFieldValuesByPin(id).first()
+                        existingValues.forEach { fv ->
                             if (fv.fieldTemplateId !in templates.map { it.id }) {
                                 valueRepo.deleteFieldValueById(fv.id)
                             }
                         }
-                        allValues.forEach { fv ->
-                            if (fv.id == 0L) valueRepo.insertFieldValue(fv) else valueRepo.updateFieldValue(fv)
+                        // Save values per template
+                        templates.forEach { template ->
+                            when (template.fieldType) {
+                                FieldType.IMAGE -> {
+                                    val newImages = editingImages[template.id]
+                                    if (newImages != null) {
+                                        // Delete existing images for this template
+                                        existingValues.filter { it.fieldTemplateId == template.id }.forEach { valueRepo.deleteFieldValueById(it.id) }
+                                        // Insert new ones
+                                        newImages.forEach { uri ->
+                                            valueRepo.insertFieldValue(FieldValue(pinId = id, fieldTemplateId = template.id, value = uri))
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
+                                    val existing = existingValues.find { it.fieldTemplateId == template.id }
+                                    if (existing != null) {
+                                        valueRepo.updateFieldValue(existing.copy(value = v))
+                                    } else {
+                                        valueRepo.insertFieldValue(FieldValue(pinId = id, fieldTemplateId = template.id, value = v))
+                                    }
+                                }
+                            }
                         }
                         onBack()
                     }
@@ -318,8 +337,7 @@ fun PinEditScreen(
             onConfirm = { name, type ->
                 scope.launch {
                     val catId = selectedCategory?.id ?: return@launch
-                    val t = FieldTemplate(categoryId = catId, fieldName = name, fieldType = type)
-                    templateRepo.insertFieldTemplate(t)
+                    templateRepo.insertFieldTemplate(FieldTemplate(categoryId = catId, fieldName = name, fieldType = type))
                     templates = templateRepo.getFieldTemplatesByCategory(catId).first()
                 }
                 showAddFieldDialog = false
@@ -331,19 +349,11 @@ fun PinEditScreen(
     viewingImageUrl?.let { url ->
         Dialog(onDismissRequest = { viewingImageUrl = null }) {
             Box(modifier = Modifier.fillMaxSize().clickable { viewingImageUrl = null }) {
-                Image(
-                    painter = coil.compose.rememberAsyncImagePainter(url),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
-                )
+                Image(painter = coil.compose.rememberAsyncImagePainter(url), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
                     modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).size(48.dp).clickable { viewingImageUrl = null }
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "关闭", modifier = Modifier.padding(12.dp))
-                }
+                ) { Icon(Icons.Default.Close, contentDescription = "关闭", modifier = Modifier.padding(12.dp)) }
             }
         }
     }

@@ -267,13 +267,9 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
             // 设置标记点击事件
             aMap.setOnMarkerClickListener { marker ->
-                val pin = pins.find {
-                    it.latitude == marker.position.latitude &&
-                            it.longitude == marker.position.longitude
-                }
-                if (pin != null) {
-                    onNavigateToEdit(pin.id)
-                }
+                marker.hideInfoWindow()
+                val pinId = marker.snippet?.toLongOrNull() ?: return@setOnMarkerClickListener false
+                onNavigateToEdit(pinId)
                 true
             }
 
@@ -486,7 +482,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             val markerOptions = MarkerOptions()
                 .position(LatLng(pin.latitude, pin.longitude))
                 .title(pin.title)
-                .snippet(pin.description ?: "")
+                .snippet(pin.id.toString())
                 .draggable(false)
                 .anchor(0.5f, 0.5f)
 

@@ -27,16 +27,16 @@ fun PinmapNavGraph(
         navController = navController,
         startDestination = startDestination,
         enterTransition = {
-            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(0))
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(300))
         },
         exitTransition = {
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(0))
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(300))
         },
         popEnterTransition = {
-            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(0))
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(300))
         },
         popExitTransition = {
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(0))
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(300))
         }
     ) {
         composable(Screen.Map.route) {

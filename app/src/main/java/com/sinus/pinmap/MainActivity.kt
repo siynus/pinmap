@@ -49,6 +49,9 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                val tabRoutes = listOf(Screen.Map.route, Screen.PinList.route, Screen.CategoryList.route, Screen.OfflineMap.route)
+                val isTabScreen = currentRoute in tabRoutes
+
                 ModalNavigationDrawer(
                     drawerState = drawerState,
                     gesturesEnabled = currentRoute != "map",
@@ -79,33 +82,37 @@ class MainActivity : ComponentActivity() {
                         Scaffold(
                             modifier = Modifier.fillMaxSize(),
                             topBar = {
-                                TopAppBar(
-                                    title = { Text("Pinmap") },
-                                    navigationIcon = {
-                                        IconButton(onClick = {
-                                            scope.launch { drawerState.open() }
-                                        }) {
-                                            Icon(Icons.Default.Menu, contentDescription = "菜单")
+                                if (isTabScreen) {
+                                    TopAppBar(
+                                        title = { Text("Pinmap") },
+                                        navigationIcon = {
+                                            IconButton(onClick = {
+                                                scope.launch { drawerState.open() }
+                                            }) {
+                                                Icon(Icons.Default.Menu, contentDescription = "菜单")
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             },
                             bottomBar = {
-                                NavigationBar {
-                                    tabs.forEach { tab ->
-                                        NavigationBarItem(
-                                            selected = currentRoute == tab.route,
-                                            onClick = {
-                                                if (currentRoute != tab.route) {
-                                                    navController.navigate(tab.route) {
-                                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                                        launchSingleTop = true
+                                if (isTabScreen) {
+                                    NavigationBar {
+                                        tabs.forEach { tab ->
+                                            NavigationBarItem(
+                                                selected = currentRoute == tab.route,
+                                                onClick = {
+                                                    if (currentRoute != tab.route) {
+                                                        navController.navigate(tab.route) {
+                                                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                                            launchSingleTop = true
+                                                        }
                                                     }
-                                                }
-                                            },
-                                            icon = { Icon(tab.icon, contentDescription = tab.label) },
-                                            label = { Text(tab.label) }
-                                        )
+                                                },
+                                                icon = { Icon(tab.icon, contentDescription = tab.label) },
+                                                label = { Text(tab.label) }
+                                            )
+                                        }
                                     }
                                 }
                             }
