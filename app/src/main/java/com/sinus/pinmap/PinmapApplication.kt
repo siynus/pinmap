@@ -8,6 +8,8 @@ class PinmapApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         MapsInitializer.setApiKey(BuildConfig.MAPS_API_KEY)
+        MapsInitializer.updatePrivacyShow(this, true, true)
+        MapsInitializer.updatePrivacyAgree(this, true)
         System.setProperty("amap.sdk.update.enable", "false")
         try {
             MapsInitializer.initialize(this)

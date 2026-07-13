@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
@@ -45,11 +46,11 @@ class MainActivity : ComponentActivity() {
                         TabItem("地图", Icons.Default.LocationOn, Screen.Map.route),
                         TabItem("标记列表", Icons.Default.List, Screen.PinList.route),
                         TabItem("分类管理", Icons.Default.Edit, Screen.CategoryList.route),
-                        TabItem("离线地图", Icons.Default.Info, Screen.OfflineMap.route)
+                        TabItem("离线地图", Icons.Default.Info, Screen.OfflineMap.route, visible = false)
                     )
                 }
 
-                val tabRoutes = listOf(Screen.Map.route, Screen.PinList.route, Screen.CategoryList.route, Screen.OfflineMap.route)
+                val tabRoutes = tabs.filter { it.visible }.map { it.route }
                 val isTabScreen = currentRoute in tabRoutes
 
                 ModalNavigationDrawer(
@@ -98,7 +99,7 @@ class MainActivity : ComponentActivity() {
                             bottomBar = {
                                 if (isTabScreen) {
                                     NavigationBar {
-                                        tabs.forEach { tab ->
+                                        tabs.filter { it.visible }.forEach { tab ->
                                             NavigationBarItem(
                                                 selected = currentRoute == tab.route,
                                                 onClick = {
@@ -130,4 +131,4 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class TabItem(val label: String, val icon: ImageVector, val route: String)
+private data class TabItem(val label: String, val icon: ImageVector, val route: String, val visible: Boolean = true)
