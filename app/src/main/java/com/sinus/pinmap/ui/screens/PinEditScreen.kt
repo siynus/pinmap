@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.shape.CircleShape
@@ -83,7 +85,8 @@ fun PinEditScreen(
     var editingValues by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
     var editingImages by remember { mutableStateOf<Map<Long, List<String>>>(emptyMap()) }
     var showAddFieldDialog by remember { mutableStateOf(false) }
-    var viewingImages by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
+    var viewerImages by remember { mutableStateOf<List<String>>(emptyList()) }
+    var viewerStartIndex by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         categories = categoryRepository.getAllCategories().first()
@@ -240,11 +243,10 @@ fun PinEditScreen(
                                             state = rowState,
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            items(images) { img ->
+                                            itemsIndexed(images) { index, img ->
                                                 Box(modifier = Modifier.size(120.dp).clickable {
-                                                    val allImages = getImages(template)
-                                                    val idx = allImages.indexOf(img)
-                                                    viewingImages = allImages to idx
+                                                    viewerImages = images
+                                                    viewerStartIndex = index
                                                 }) {
                                                     Image(
                                                         painter = coil.compose.rememberAsyncImagePainter(img),
@@ -358,13 +360,17 @@ fun PinEditScreen(
         )
     }
 
-    viewingImages?.let { (images, startIndex) ->
+    if (viewerImages.isNotEmpty()) {
+        val images = viewerImages
+        val startIndex = viewerStartIndex.coerceIn(0, images.size - 1)
+        val totalPages = images.size * 2001
+        val initialOffset = images.size * 1000
         val pagerState = rememberPagerState(
-            initialPage = startIndex + Int.MAX_VALUE / 2,
-            pageCount = { Int.MAX_VALUE }
+            initialPage = startIndex + initialOffset,
+            pageCount = { totalPages }
         )
         Dialog(
-            onDismissRequest = { viewingImages = null },
+            onDismissRequest = { viewerImages = emptyList() },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             HorizontalPager(
@@ -383,6 +389,7 @@ fun PinEditScreen(
                             awaitEachGesture {
                                 awaitFirstDown(requireUnconsumed = false)
                                 var multi = false
+                                var moved = false
                                 do {
                                     val event = awaitPointerEvent()
                                     if (event.changes.size >= 2) {
@@ -401,8 +408,13 @@ fun PinEditScreen(
                                         val pcy = ch.fold(0f) { a, c -> a + c.previousPosition.y } / ch.size
                                         offsetX = (offsetX + cx - pcx).coerceIn(-(size.width * (scale - 1)) / 2f, (size.width * (scale - 1)) / 2f)
                                         offsetY = (offsetY + cy - pcy).coerceIn(-(size.height * (scale - 1)) / 2f, (size.height * (scale - 1)) / 2f)
+                                    } else if (event.type == PointerEventType.Move) {
+                                        val dx = event.changes[0].position.x - event.changes[0].previousPosition.x
+                                        val dy = event.changes[0].position.y - event.changes[0].previousPosition.y
+                                        if (dx * dx + dy * dy > 50f) moved = true
                                     }
                                 } while (event.changes.any { it.pressed })
+                                if (!multi && !moved) viewerImages = emptyList()
                             }
                         }
                         .graphicsLayer {
