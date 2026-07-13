@@ -12,17 +12,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.sinus.pinmap.data.entity.FieldType
 
-/**
- * 创建字段模板对话框
- */
 @Composable
 fun CreateFieldTemplateDialog(
-    onConfirm: (fieldName: String, fieldType: FieldType, isTemplate: Boolean) -> Unit,
+    onConfirm: (fieldName: String, fieldType: FieldType) -> Unit,
     onDismiss: () -> Unit
 ) {
     var fieldName by remember { mutableStateOf("") }
     var selectedFieldType by remember { mutableStateOf(FieldType.TEXT) }
-    var isTemplate by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -42,7 +38,6 @@ fun CreateFieldTemplateDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 字段名称
                 OutlinedTextField(
                     value = fieldName,
                     onValueChange = { fieldName = it },
@@ -53,7 +48,6 @@ fun CreateFieldTemplateDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 字段类型选择
                 Text(
                     text = "字段类型",
                     style = MaterialTheme.typography.bodyMedium
@@ -64,7 +58,6 @@ fun CreateFieldTemplateDialog(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // 文本类型
                     FilterChip(
                         selected = selectedFieldType == FieldType.TEXT,
                         onClick = { selectedFieldType = FieldType.TEXT },
@@ -80,7 +73,6 @@ fun CreateFieldTemplateDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // 图片类型
                     FilterChip(
                         selected = selectedFieldType == FieldType.IMAGE,
                         onClick = { selectedFieldType = FieldType.IMAGE },
@@ -96,7 +88,6 @@ fun CreateFieldTemplateDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // 数字类型
                     FilterChip(
                         selected = selectedFieldType == FieldType.NUMBER,
                         onClick = { selectedFieldType = FieldType.NUMBER },
@@ -115,25 +106,6 @@ fun CreateFieldTemplateDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 是否添加到通用模板
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = isTemplate,
-                        onCheckedChange = { isTemplate = it }
-                    )
-                    Text(
-                        text = "添加到当前类别的通用模板",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 按钮
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -145,9 +117,7 @@ fun CreateFieldTemplateDialog(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Button(
-                        onClick = {
-                            onConfirm(fieldName, selectedFieldType, isTemplate)
-                        },
+                        onClick = { onConfirm(fieldName, selectedFieldType) },
                         enabled = fieldName.isNotBlank()
                     ) {
                         Text("添加")

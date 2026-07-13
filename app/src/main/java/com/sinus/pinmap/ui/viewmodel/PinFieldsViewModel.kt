@@ -1,6 +1,5 @@
 package com.sinus.pinmap.ui.viewmodel
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sinus.pinmap.data.entity.FieldTemplate
@@ -13,14 +12,12 @@ import com.sinus.pinmap.data.repository.PinRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class PinDetailViewModel(
-    savedStateHandle: SavedStateHandle,
+class PinFieldsViewModel(
+    private val pinId: Long,
     private val pinRepository: PinRepository,
     private val fieldTemplateRepository: FieldTemplateRepository,
     private val fieldValueRepository: FieldValueRepository
 ) : ViewModel() {
-
-    private val pinId: Long = checkNotNull(savedStateHandle["pinId"])
 
     private val _pin = MutableStateFlow<Pin?>(null)
     val pin: StateFlow<Pin?> = _pin.asStateFlow()
@@ -28,36 +25,26 @@ class PinDetailViewModel(
     private val _fieldValues = MutableStateFlow<Map<Long, FieldValue>>(emptyMap())
     val fieldValues: StateFlow<Map<Long, FieldValue>> = _fieldValues.asStateFlow()
 
-    private val _refresh = MutableStateFlow(0)
+    private val _templates = MutableStateFlow<List<FieldTemplate>>(emptyList())
+    val templates: StateFlow<List<FieldTemplate>> = _templates.asStateFlow()
 
-    val fieldTemplates: StateFlow<List<FieldTemplate>> = combine(
-        _pin,
-        _refresh
-    ) { pin, _ ->
-        if (pin == null) return@combine emptyList()
-        val categoryId = pin.categoryId ?: return@combine emptyList()
-        val categoryTemplates = fieldTemplateRepository
-            .getFieldTemplatesByCategory(categoryId)
-            .first()
-        categoryTemplates
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.Eagerly,
-        initialValue = emptyList()
-    )
+    private val _refresh = MutableStateFlow(0)
 
     init {
         loadPin()
-        loadFieldValues()
+        loadFields()
     }
 
     private fun loadPin() {
         viewModelScope.launch {
-            pinRepository.getPinById(pinId)?.let { _pin.value = it }
+            val p = pinRepository.getPinById(pinId) ?: return@launch
+            val cid = p.categoryId ?: return@launch
+            _pin.value = p
+            _templates.value = fieldTemplateRepository.getFieldTemplatesByCategory(cid).first()
         }
     }
 
-    private fun loadFieldValues() {
+    private fun loadFields() {
         viewModelScope.launch {
             fieldValueRepository.getFieldValuesByPin(pinId).collect { values ->
                 _fieldValues.value = values.associateBy { it.fieldTemplateId ?: it.id }
@@ -65,11 +52,12 @@ class PinDetailViewModel(
         }
     }
 
-    fun createField(fieldName: String, fieldType: FieldType) {
+    fun addField(fieldName: String, fieldType: FieldType) {
         viewModelScope.launch {
-            val categoryId = _pin.value?.categoryId ?: return@launch
+            val pin = _pin.value ?: return@launch
+            val cid = pin.categoryId ?: return@launch
             val template = FieldTemplate(
-                categoryId = categoryId,
+                categoryId = cid,
                 fieldName = fieldName,
                 fieldType = fieldType
             )
@@ -77,6 +65,7 @@ class PinDetailViewModel(
             fieldValueRepository.insertFieldValue(
                 FieldValue(pinId = pinId, fieldTemplateId = templateId)
             )
+            _templates.value = fieldTemplateRepository.getFieldTemplatesByCategory(cid).first()
             _refresh.value++
         }
     }
@@ -90,15 +79,17 @@ class PinDetailViewModel(
         }
     }
 
-    fun deleteFieldValue(key: Long) {
+    fun deleteField(key: Long) {
         viewModelScope.launch {
-            val fieldValue = _fieldValues.value[key]
-            if (fieldValue == null) return@launch
+            val fieldValue = _fieldValues.value[key] ?: return@launch
             val templateId = fieldValue.fieldTemplateId
             fieldValueRepository.deleteFieldValueById(fieldValue.id)
             if (templateId != null) {
                 fieldTemplateRepository.deleteFieldTemplateById(templateId)
             }
+            val pin = _pin.value ?: return@launch
+            val cid = pin.categoryId ?: return@launch
+            _templates.value = fieldTemplateRepository.getFieldTemplatesByCategory(cid).first()
             _refresh.value++
         }
     }

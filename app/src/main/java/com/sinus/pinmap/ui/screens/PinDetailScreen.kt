@@ -47,6 +47,7 @@ import com.sinus.pinmap.ui.viewmodel.PinDetailViewModel
 fun PinDetailScreen(
     pinId: Long,
     onBack: () -> Unit,
+    onNavigateToFields: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -76,7 +77,6 @@ fun PinDetailScreen(
 
     val scope = rememberCoroutineScope()
 
-    var showAddFieldDialog by remember { mutableStateOf(false) }
     var fieldToDelete by remember { mutableStateOf<FieldTemplate?>(null) }
     var currentEditingFieldId by remember { mutableStateOf<Long?>(null) }
     var viewingImageUrl by remember { mutableStateOf<String?>(null) }
@@ -162,9 +162,9 @@ fun PinDetailScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddFieldDialog = true }
+                onClick = { onNavigateToFields(pinId) }
             ) {
-                Icon(Icons.Default.Add, contentDescription = "添加字段")
+                Icon(Icons.Default.Add, contentDescription = "编辑字段")
             }
         },
         modifier = modifier
@@ -233,7 +233,7 @@ fun PinDetailScreen(
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
-                                text = "点击右下角按钮添加字段",
+                                text = "点击右下角按钮编辑字段",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -293,21 +293,6 @@ fun PinDetailScreen(
                 }
             }
         }
-    }
-
-    // 添加字段对话框
-    if (showAddFieldDialog) {
-        CreateFieldTemplateDialog(
-            onConfirm = { fieldName, fieldType, isTemplate ->
-                if (isTemplate) {
-                    viewModel.createTemplateField(fieldName, fieldType)
-                } else {
-                    viewModel.createIndependentField(fieldName, fieldType)
-                }
-                showAddFieldDialog = false
-            },
-            onDismiss = { showAddFieldDialog = false }
-        )
     }
 
     // 删除字段确认对话框

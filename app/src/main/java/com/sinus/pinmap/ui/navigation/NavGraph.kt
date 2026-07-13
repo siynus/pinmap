@@ -7,18 +7,16 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sinus.pinmap.ui.screens.CategoryListScreen
+import com.sinus.pinmap.ui.screens.FieldTemplatesScreen
 import com.sinus.pinmap.ui.screens.MapScreen
 import com.sinus.pinmap.ui.screens.OfflineMapScreen
 import com.sinus.pinmap.ui.screens.PinDetailScreen
 import com.sinus.pinmap.ui.screens.PinEditScreen
+import com.sinus.pinmap.ui.screens.PinFieldsScreen
 import com.sinus.pinmap.ui.screens.PinListScreen
 
-/**
- * 应用导航图
- */
 @Composable
 fun PinmapNavGraph(
     navController: NavHostController,
@@ -28,88 +26,102 @@ fun PinmapNavGraph(
         navController = navController,
         startDestination = startDestination,
         enterTransition = {
-            // 无进场动画
             slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(0))
         },
         exitTransition = {
-            // 无退场动画
             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(0))
         },
         popEnterTransition = {
-            // 无进场动画
             slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(0))
         },
         popExitTransition = {
-            // 无退场动画
             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(0))
         }
     ) {
-        // 地图页面
         composable(Screen.Map.route) {
             MapScreen(
                 onNavigateToEdit = { pinId ->
                     navController.navigate(Screen.PinEdit.createRoute(pinId))
+                },
+                onNavigateToCreate = { lat, lng ->
+                    navController.navigate(Screen.PinEdit.createRoute(null, lat, lng))
                 }
             )
         }
 
-        // 标记编辑页面
         composable(
             route = Screen.PinEdit.route,
             arguments = listOf(
-                navArgument("pinId") {
-                    type = NavType.LongType
-                    defaultValue = 0L
-                }
+                navArgument("pinId") { type = NavType.LongType; defaultValue = 0L },
+                navArgument("lat") { type = NavType.StringType; defaultValue = "0.0" },
+                navArgument("lng") { type = NavType.StringType; defaultValue = "0.0" }
             )
         ) { backStackEntry ->
             val pinId = backStackEntry.arguments?.getLong("pinId") ?: 0L
-            // TODO: 从 ViewModel 加载现有标记数据
+            val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
+            val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
             PinEditScreen(
                 pinId = pinId,
-                onSave = { title, description ->
-                    // TODO: 保存标记
-                    navController.popBackStack()
-                },
-                onCancel = {
-                    navController.popBackStack()
-                }
+                lat = lat,
+                lng = lng,
+                onBack = { navController.popBackStack() }
             )
         }
 
-        // 标记详情页面
         composable(
             route = Screen.PinDetail.route,
             arguments = listOf(
-                navArgument("pinId") {
-                    type = NavType.LongType
-                }
+                navArgument("pinId") { type = NavType.LongType }
             )
         ) { backStackEntry ->
             val pinId = backStackEntry.arguments?.getLong("pinId") ?: 0L
             PinDetailScreen(
                 pinId = pinId,
-                onBack = {
-                    navController.popBackStack()
+                onBack = { navController.popBackStack() },
+                onNavigateToFields = {
+                    navController.navigate(Screen.PinFields.createRoute(it))
                 }
             )
         }
 
-        // 标记列表页面
+        composable(
+            route = Screen.PinFields.route,
+            arguments = listOf(navArgument("pinId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val pinId = backStackEntry.arguments?.getLong("pinId") ?: 0L
+            PinFieldsScreen(
+                pinId = pinId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.FieldTemplates.route,
+            arguments = listOf(navArgument("categoryId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val categoryId = backStackEntry.arguments?.getLong("categoryId") ?: 0L
+            FieldTemplatesScreen(
+                categoryId = categoryId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.PinList.route) {
             PinListScreen(
                 onPinClick = { pinId ->
-                    navController.navigate(Screen.PinDetail.createRoute(pinId))
+                    navController.navigate(Screen.PinEdit.createRoute(pinId))
                 }
             )
         }
 
-        // 分类列表页面
         composable(Screen.CategoryList.route) {
-            CategoryListScreen()
+            CategoryListScreen(
+                onNavigateToFieldTemplates = { categoryId ->
+                    navController.navigate(Screen.FieldTemplates.createRoute(categoryId))
+                }
+            )
         }
 
-        // 离线地图页面
         composable(Screen.OfflineMap.route) {
             OfflineMapScreen()
         }

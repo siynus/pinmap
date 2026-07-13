@@ -71,8 +71,7 @@ fun CreatePinDialog(
                     id = nextFieldId++,
                     name = template.fieldName,
                     type = template.fieldType,
-                    value = "",
-                    isTemplate = true
+                    value = ""
                 )
             }
         }
@@ -311,19 +310,7 @@ fun CreatePinDialog(
                                                 text = field.name,
                                                 style = MaterialTheme.typography.bodyMedium
                                             )
-                                            if (field.isTemplate) {
-                                                Surface(
-                                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "模板",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                    )
-                                                }
-                                            }
+
                                         }
                                         TextButton(
                                             onClick = {
@@ -461,7 +448,6 @@ fun CreatePinDialog(
     if (showCreateFieldDialog) {
         var fieldName by remember { mutableStateOf("") }
         var fieldType by remember { mutableStateOf(FieldType.TEXT) }
-        var isTemplate by remember { mutableStateOf(false) }
 
         Dialog(onDismissRequest = { showCreateFieldDialog = false }) {
             Card(
@@ -547,23 +533,6 @@ fun CreatePinDialog(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 是否添加到通用模板
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isTemplate,
-                            onCheckedChange = { isTemplate = it }
-                        )
-                        Text(
-                            text = "添加到当前类别的通用模板",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -581,8 +550,7 @@ fun CreatePinDialog(
                                     id = nextFieldId++,
                                     name = fieldName,
                                     type = fieldType,
-                                    value = "",
-                                    isTemplate = isTemplate
+                                    value = ""
                                 )
                                 showCreateFieldDialog = false
                             },

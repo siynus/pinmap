@@ -67,27 +67,15 @@ class MapViewModel(
             val pinId = pinRepository.insertPin(pin)
 
             fields.forEach { fieldData ->
-                if (fieldData.isTemplate) {
-                    val template = FieldTemplate(
-                        categoryId = categoryId,
-                        fieldName = fieldData.name,
-                        fieldType = fieldData.type
-                    )
-                    val templateId = fieldTemplateRepository.insertFieldTemplate(template)
-                    fieldValueRepository.insertFieldValue(
-                        FieldValue(pinId = pinId, fieldTemplateId = templateId, value = fieldData.value)
-                    )
-                } else {
-                    fieldValueRepository.insertFieldValue(
-                        FieldValue(
-                            pinId = pinId,
-                            fieldTemplateId = null,
-                            fieldName = fieldData.name,
-                            fieldType = fieldData.type,
-                            value = fieldData.value
-                        )
-                    )
-                }
+                val template = FieldTemplate(
+                    categoryId = categoryId,
+                    fieldName = fieldData.name,
+                    fieldType = fieldData.type
+                )
+                val templateId = fieldTemplateRepository.insertFieldTemplate(template)
+                fieldValueRepository.insertFieldValue(
+                    FieldValue(pinId = pinId, fieldTemplateId = templateId, value = fieldData.value)
+                )
             }
         }
     }

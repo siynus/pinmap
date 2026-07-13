@@ -17,16 +17,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sinus.pinmap.data.database.PinmapDatabase
+import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.ui.viewmodel.CategoryViewModel
 
-/**
- * 分类列表页面
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryListScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToFieldTemplates: (Long) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
@@ -36,7 +35,7 @@ fun CategoryListScreen(
     val categories by viewModel.categories.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
-    var categoryToDelete by remember { mutableStateOf<com.sinus.pinmap.data.entity.Category?>(null) }
+    var categoryToDelete by remember { mutableStateOf<Category?>(null) }
 
     Scaffold(
         topBar = {
@@ -54,7 +53,6 @@ fun CategoryListScreen(
         modifier = modifier
     ) { paddingValues ->
         if (categories.isEmpty()) {
-            // 空状态
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -87,6 +85,7 @@ fun CategoryListScreen(
                 items(categories) { category ->
                     CategoryItem(
                         category = category,
+                        onClick = { onNavigateToFieldTemplates(category.id) },
                         onDelete = { categoryToDelete = category }
                     )
                 }
@@ -94,7 +93,6 @@ fun CategoryListScreen(
         }
     }
 
-    // 创建分类对话框
     if (showCreateDialog) {
         CreateCategoryDialog(
             onConfirm = { name, color ->
@@ -105,7 +103,6 @@ fun CategoryListScreen(
         )
     }
 
-    // 删除确认对话框
     categoryToDelete?.let { category ->
         AlertDialog(
             onDismissRequest = { categoryToDelete = null },
@@ -135,16 +132,16 @@ fun CategoryListScreen(
     }
 }
 
-/**
- * 分类列表项
- */
 @Composable
 private fun CategoryItem(
-    category: com.sinus.pinmap.data.entity.Category,
+    category: Category,
+    onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier
@@ -158,14 +155,11 @@ private fun CategoryItem(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                // 颜色指示器
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .background(Color(category.color), CircleShape)
                 )
-
-                // 分类名称
                 Column(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -174,14 +168,13 @@ private fun CategoryItem(
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = "ID: ${category.id}",
+                        text = "点击管理字段模板",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
-            // 删除按钮
             IconButton(
                 onClick = onDelete,
                 colors = IconButtonDefaults.iconButtonColors(
