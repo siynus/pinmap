@@ -1,5 +1,0 @@
-# pack-refs with: peeled fully-peeled sorted 
-9925c147681a201313d9511afcfd8d4951525e81 refs/heads/backup/current-state
-e269baae1815fae796e286c056f1a6e0a122a655 refs/heads/baseline_0.0.0
-9925c147681a201313d9511afcfd8d4951525e81 refs/heads/develop/v1
-e269baae1815fae796e286c056f1a6e0a122a655 refs/heads/master
