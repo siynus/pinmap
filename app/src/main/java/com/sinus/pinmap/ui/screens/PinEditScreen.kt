@@ -218,35 +218,35 @@ fun PinEditScreen(
                     item { Text("字段", style = MaterialTheme.typography.titleSmall) }
                 }
 
-                items(templates) { template ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            when (template.fieldType) {
-                                FieldType.TEXT -> {
-                                    val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), minLines = 1)
-                                }
-                                FieldType.NUMBER -> {
-                                    val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                                }
-                                FieldType.DATE -> {
-                                    val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("YYYY-MM-DD") })
-                                }
-                                FieldType.IMAGE -> {
-                                    val images = getImages(template)
-                                    if (images.isNotEmpty()) {
-                                        val rowState = rememberLazyListState()
-                                        LaunchedEffect(images.size) {
-                                            if (images.isNotEmpty()) rowState.animateScrollToItem(images.size - 1)
-                                        }
-                                        LazyRow(
-                                            state = rowState,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
+                itemsIndexed(templates) { index, template ->
+                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                        Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        when (template.fieldType) {
+                            FieldType.TEXT -> {
+                                val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
+                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), minLines = 1)
+                            }
+                            FieldType.NUMBER -> {
+                                val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
+                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                            }
+                            FieldType.DATE -> {
+                                val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
+                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("YYYY-MM-DD") })
+                            }
+                            FieldType.IMAGE -> {
+                                val images = getImages(template)
+                                if (images.isNotEmpty()) {
+                                    val rowState = rememberLazyListState()
+                                    LaunchedEffect(images.size) {
+                                        if (images.isNotEmpty()) rowState.animateScrollToItem(images.size - 1)
+                                    }
+                                    LazyRow(
+                                        state = rowState,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
                                             itemsIndexed(images) { index, img ->
                                                 Box(modifier = Modifier.size(120.dp).clickable {
                                                     viewerImages = images
@@ -288,7 +288,6 @@ fun PinEditScreen(
                                     ) { Text(if (images.isEmpty()) "选择图片" else "添加图片") }
                                 }
                             }
-                        }
                     }
                 }
 
