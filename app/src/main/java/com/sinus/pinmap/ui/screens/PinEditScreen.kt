@@ -87,6 +87,10 @@ fun PinEditScreen(
     var showAddFieldDialog by remember { mutableStateOf(false) }
     var viewerImages by remember { mutableStateOf<List<String>>(emptyList()) }
     var viewerStartIndex by remember { mutableIntStateOf(0) }
+    var hasChanges by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+
+    fun markDirty() { if (!isCreate) hasChanges = true }
 
     LaunchedEffect(Unit) {
         categories = categoryRepository.getAllCategories().first()
@@ -147,7 +151,7 @@ fun PinEditScreen(
                         }
                         val uriStr = Uri.fromFile(imageFile).toString()
                         val current = editingImages[tid] ?: emptyList()
-                        editingImages = editingImages + (tid to (current + uriStr))
+                        editingImages = editingImages + (tid to (current + uriStr)); markDirty()
                     } catch (e: Exception) { e.printStackTrace() }
                 }
             }
@@ -181,7 +185,7 @@ fun PinEditScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("标题") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = title, onValueChange = { title = it; markDirty() }, label = { Text("标题") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
 
                 item {
@@ -198,7 +202,7 @@ fun PinEditScreen(
                                         Box(modifier = Modifier.size(24.dp).background(Color(category.color), CircleShape))
                                         Text(category.name)
                                     }},
-                                    onClick = { selectedCategory = category; expanded = false },
+                                    onClick = { selectedCategory = category; expanded = false; markDirty() },
                                     leadingIcon = if (selectedCategory?.id == category.id) { { Icon(Icons.Default.Check, contentDescription = null) } } else null
                                 )
                             }
@@ -216,21 +220,21 @@ fun PinEditScreen(
 
                 items(templates) { template ->
                     Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(8.dp)) {
                             Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             when (template.fieldType) {
                                 FieldType.TEXT -> {
                                     val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), minLines = 1)
                                 }
                                 FieldType.NUMBER -> {
                                     val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                                 }
                                 FieldType.DATE -> {
                                     val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it) }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("YYYY-MM-DD") })
+                                    OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("YYYY-MM-DD") })
                                 }
                                 FieldType.IMAGE -> {
                                     val images = getImages(template)
@@ -258,7 +262,7 @@ fun PinEditScreen(
                                                         color = MaterialTheme.colorScheme.error,
                                                         shape = CircleShape,
                                                         modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
-                                                            editingImages = editingImages + (template.id to (images - img))
+                                                            editingImages = editingImages + (template.id to (images - img)); markDirty()
                                                         }
                                                     ) {
                                                         Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.padding(4.dp))
@@ -295,6 +299,7 @@ fun PinEditScreen(
 
             Button(
                 onClick = {
+                    saving = true
                     scope.launch {
                         val categoryId = selectedCategory?.id ?: return@launch
                         val id = if (isCreate) {
@@ -305,22 +310,18 @@ fun PinEditScreen(
                             }
                             pinId
                         }
-                        // Delete removed template values
                         val existingValues = valueRepo.getFieldValuesByPin(id).first()
                         existingValues.forEach { fv ->
                             if (fv.fieldTemplateId !in templates.map { it.id }) {
                                 valueRepo.deleteFieldValueById(fv.id)
                             }
                         }
-                        // Save values per template
                         templates.forEach { template ->
                             when (template.fieldType) {
                                 FieldType.IMAGE -> {
                                     val newImages = editingImages[template.id]
                                     if (newImages != null) {
-                                        // Delete existing images for this template
                                         existingValues.filter { it.fieldTemplateId == template.id }.forEach { valueRepo.deleteFieldValueById(it.id) }
-                                        // Insert new ones
                                         newImages.forEach { uri ->
                                             valueRepo.insertFieldValue(FieldValue(pinId = id, fieldTemplateId = template.id, value = uri))
                                         }
@@ -337,11 +338,12 @@ fun PinEditScreen(
                                 }
                             }
                         }
-                        onBack()
+                        saving = false
+                        hasChanges = false
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                enabled = title.isNotBlank() && selectedCategory != null
+                enabled = title.isNotBlank() && selectedCategory != null && (isCreate || hasChanges) && !saving
             ) { Text("保存") }
         }
     }
@@ -351,7 +353,8 @@ fun PinEditScreen(
             onConfirm = { name, type ->
                 scope.launch {
                     val catId = selectedCategory?.id ?: return@launch
-                    templateRepo.insertFieldTemplate(FieldTemplate(categoryId = catId, fieldName = name, fieldType = type))
+                    val nextOrder = templateRepo.nextSortOrder(catId)
+                    templateRepo.insertFieldTemplate(FieldTemplate(categoryId = catId, fieldName = name, fieldType = type, sortOrder = nextOrder))
                     templates = templateRepo.getFieldTemplatesByCategory(catId).first()
                 }
                 showAddFieldDialog = false

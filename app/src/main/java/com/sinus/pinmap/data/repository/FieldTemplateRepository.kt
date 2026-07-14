@@ -14,6 +14,8 @@ class FieldTemplateRepository(private val fieldTemplateStore: FieldTemplateStore
     fun getFieldTemplatesByCategory(categoryId: Long): Flow<List<FieldTemplate>> =
         fieldTemplateStore.getFieldTemplatesByCategory(categoryId)
 
+    suspend fun nextSortOrder(categoryId: Long): Int = fieldTemplateStore.nextSortOrder(categoryId)
+
     suspend fun insertFieldTemplate(fieldTemplate: FieldTemplate): Long =
         fieldTemplateStore.insertFieldTemplate(fieldTemplate)
 

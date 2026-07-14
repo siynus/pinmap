@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sinus.pinmap.data.store.AttachmentStore
 import com.sinus.pinmap.data.store.CategoryStore
 import com.sinus.pinmap.data.store.FieldTemplateStore
@@ -27,7 +29,7 @@ import com.sinus.pinmap.data.entity.Pin
         Attachment::class,
         OfflineMap::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -43,6 +45,10 @@ abstract class PinmapDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: PinmapDatabase? = null
 
+        val MIGRATION_3_4 = Migration(3, 4) { db ->
+            db.execSQL("ALTER TABLE field_templates ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
+        }
+
         fun getDatabase(context: Context): PinmapDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -50,7 +56,7 @@ abstract class PinmapDatabase : RoomDatabase() {
                     PinmapDatabase::class.java,
                     "pinmap_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_3_4)
                     .build()
                 INSTANCE = instance
                 instance

@@ -6,14 +6,17 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FieldTemplateStore {
-    @Query("SELECT * FROM field_templates ORDER BY createdAt DESC")
+    @Query("SELECT * FROM field_templates ORDER BY sortOrder ASC, id ASC")
     fun getAllFieldTemplates(): Flow<List<FieldTemplate>>
 
     @Query("SELECT * FROM field_templates WHERE id = :id")
     suspend fun getFieldTemplateById(id: Long): FieldTemplate?
 
-    @Query("SELECT * FROM field_templates WHERE categoryId = :categoryId ORDER BY createdAt DESC")
+    @Query("SELECT * FROM field_templates WHERE categoryId = :categoryId ORDER BY sortOrder ASC, id ASC")
     fun getFieldTemplatesByCategory(categoryId: Long): Flow<List<FieldTemplate>>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM field_templates WHERE categoryId = :categoryId")
+    suspend fun nextSortOrder(categoryId: Long): Int
 
     @Insert
     suspend fun insertFieldTemplate(fieldTemplate: FieldTemplate): Long

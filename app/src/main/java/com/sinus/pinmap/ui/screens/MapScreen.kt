@@ -261,6 +261,21 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 true
             }
 
+            // 设置标记拖拽事件
+            aMap.setOnMarkerDragListener(object : com.amap.api.maps.AMap.OnMarkerDragListener {
+                override fun onMarkerDragStart(marker: com.amap.api.maps.model.Marker?) {}
+                override fun onMarkerDrag(marker: com.amap.api.maps.model.Marker?) {}
+                override fun onMarkerDragEnd(marker: com.amap.api.maps.model.Marker?) {
+                    val id = marker?.snippet?.toLongOrNull() ?: return
+                    val pos = marker.position
+                    scope.launch {
+                        pinRepository.getPinById(id)?.let { pin ->
+                            pinRepository.updatePin(pin.copy(latitude = pos.latitude, longitude = pos.longitude))
+                        }
+                    }
+                }
+            })
+
             // 监听地图移动，保存位置
             aMap.setOnCameraChangeListener(object : com.amap.api.maps.AMap.OnCameraChangeListener {
                 override fun onCameraChange(cameraPosition: com.amap.api.maps.model.CameraPosition?) {}
@@ -472,7 +487,7 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 .position(LatLng(pin.latitude, pin.longitude))
                 .title(pin.title)
                 .snippet(pin.id.toString())
-                .draggable(false)
+                .draggable(true)
                 .anchor(0.5f, 0.5f)
 
             // 添加标记到地图

@@ -56,10 +56,12 @@ class PinFieldsViewModel(
         viewModelScope.launch {
             val pin = _pin.value ?: return@launch
             val cid = pin.categoryId ?: return@launch
+            val order = fieldTemplateRepository.nextSortOrder(cid)
             val template = FieldTemplate(
                 categoryId = cid,
                 fieldName = fieldName,
-                fieldType = fieldType
+                fieldType = fieldType,
+                sortOrder = order
             )
             val templateId = fieldTemplateRepository.insertFieldTemplate(template)
             fieldValueRepository.insertFieldValue(

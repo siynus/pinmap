@@ -10,9 +10,10 @@ import androidx.room.PrimaryKey
 data class FieldTemplate(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val categoryId: Long, // 关联到分类
+    val categoryId: Long,
     val fieldName: String,
     val fieldType: FieldType,
+    val sortOrder: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

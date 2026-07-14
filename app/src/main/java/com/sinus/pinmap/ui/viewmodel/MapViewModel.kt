@@ -67,10 +67,12 @@ class MapViewModel(
             val pinId = pinRepository.insertPin(pin)
 
             fields.forEach { fieldData ->
+                val order = fieldTemplateRepository.nextSortOrder(categoryId)
                 val template = FieldTemplate(
                     categoryId = categoryId,
                     fieldName = fieldData.name,
-                    fieldType = fieldData.type
+                    fieldType = fieldData.type,
+                    sortOrder = order
                 )
                 val templateId = fieldTemplateRepository.insertFieldTemplate(template)
                 fieldValueRepository.insertFieldValue(
