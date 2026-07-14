@@ -2,8 +2,10 @@ package com.sinus.pinmap.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -98,6 +100,21 @@ fun CreateFieldTemplateDialog(
                             ) {
                                 Icon(Icons.Default.Done, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Text("数字")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    FilterChip(
+                        selected = selectedFieldType == FieldType.VIDEO,
+                        onClick = { selectedFieldType = FieldType.VIDEO },
+                        label = {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Text("视频")
                             }
                         },
                         modifier = Modifier.fillMaxWidth()

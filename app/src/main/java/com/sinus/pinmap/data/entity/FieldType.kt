@@ -7,5 +7,6 @@ enum class FieldType {
     TEXT,
     NUMBER,
     DATE,
-    IMAGE
+    IMAGE,
+    VIDEO
 }

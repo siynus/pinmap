@@ -142,5 +142,7 @@ fun FieldValueEditor(
                 placeholder = { Text("YYYY-MM-DD") }
             )
         }
+
+        else -> {}
     }
 }

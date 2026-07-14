@@ -2,8 +2,10 @@ package com.sinus.pinmap.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import android.widget.VideoView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -19,11 +21,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -32,16 +29,24 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.entity.Category
@@ -53,8 +58,10 @@ import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
@@ -87,6 +94,8 @@ fun PinEditScreen(
     var showAddFieldDialog by remember { mutableStateOf(false) }
     var viewerImages by remember { mutableStateOf<List<String>>(emptyList()) }
     var viewerStartIndex by remember { mutableIntStateOf(0) }
+    var playingVideo by remember { mutableStateOf<String?>(null) }
+    val thumbnailCache = remember { mutableStateMapOf<String, androidx.compose.ui.graphics.ImageBitmap>() }
     var hasChanges by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
 
@@ -142,7 +151,12 @@ fun PinEditScreen(
                 scope.launch {
                     try {
                         val timeStamp = System.currentTimeMillis()
-                        val fileName = "IMG_${timeStamp}.jpg"
+                        val ext = try {
+                            context.contentResolver.getType(selectedUri)?.split("/")?.lastOrNull()?.let {
+                                if (it == "*" || it.length > 4) null else ".$it"
+                            } ?: ".jpg"
+                        } catch (_: Exception) { ".jpg" }
+                        val fileName = "IMG_${timeStamp}$ext"
                         val imagesDir = File(context.filesDir, "images")
                         if (!imagesDir.exists()) imagesDir.mkdirs()
                         val imageFile = File(imagesDir, fileName)
@@ -150,8 +164,11 @@ fun PinEditScreen(
                             FileOutputStream(imageFile).use { output -> input.copyTo(output) }
                         }
                         val uriStr = Uri.fromFile(imageFile).toString()
-                        val current = editingImages[tid] ?: emptyList()
-                        editingImages = editingImages + (tid to (current + uriStr)); markDirty()
+                        val existing = fieldValues[tid]?.map { it.value ?: "" } ?: emptyList()
+                        val current = editingImages[tid] ?: existing
+                        if (uriStr !in current) {
+                            editingImages = editingImages + (tid to (current + uriStr)); markDirty()
+                        }
                     } catch (e: Exception) { e.printStackTrace() }
                 }
             }
@@ -165,21 +182,40 @@ fun PinEditScreen(
         return fieldValues[template.id]?.map { it.value ?: "" } ?: emptyList()
     }
 
+    @Composable
+    fun VideoThumbnail(videoUri: String, modifier: Modifier = Modifier) {
+        val cached = thumbnailCache[videoUri]
+        if (cached != null) {
+            Image(bitmap = cached, contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)
+        } else {
+            LaunchedEffect(videoUri) {
+                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        val retriever = MediaMetadataRetriever()
+                        retriever.setDataSource(context, Uri.parse(videoUri))
+                        val frame = retriever.frameAtTime
+                        retriever.release()
+                        frame?.let { thumbnailCache[videoUri] = it.asImageBitmap() }
+                    } catch (_: Exception) { }
+                }
+            }
+            Box(modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(if (isCreate) "新建标记" else "编辑标记") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                    }
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "返回") }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding)
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             LazyColumn(
                 modifier = Modifier.weight(1f).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -243,51 +279,59 @@ fun PinEditScreen(
                                     LaunchedEffect(images.size) {
                                         if (images.isNotEmpty()) rowState.animateScrollToItem(images.size - 1)
                                     }
-                                    LazyRow(
-                                        state = rowState,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                            itemsIndexed(images) { index, img ->
-                                                Box(modifier = Modifier.size(120.dp).clickable {
-                                                    viewerImages = images
-                                                    viewerStartIndex = index
-                                                }) {
-                                                    Image(
-                                                        painter = coil.compose.rememberAsyncImagePainter(img),
-                                                        contentDescription = null,
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        contentScale = ContentScale.Crop
-                                                    )
-                                                    Surface(
-                                                        color = MaterialTheme.colorScheme.error,
-                                                        shape = CircleShape,
-                                                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
-                                                            editingImages = editingImages + (template.id to (images - img)); markDirty()
-                                                        }
-                                                    ) {
-                                                        Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.padding(4.dp))
-                                                    }
-                                                }
+                                    LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        itemsIndexed(images) { index, img ->
+                                            Box(modifier = Modifier.size(120.dp).clickable {
+                                                viewerImages = images; viewerStartIndex = index
+                                            }) {
+                                                Image(painter = coil.compose.rememberAsyncImagePainter(img), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                                Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
+                                                    editingImages = editingImages + (template.id to (images - img)); markDirty()
+                                                }) { Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.padding(4.dp)) }
                                             }
                                         }
-                                        Spacer(modifier = Modifier.height(8.dp))
                                     }
-                                    OutlinedButton(
-                                        onClick = {
-                                            if (hasImagePermission) {
-                                                pendingImageTemplateId = template.id
-                                                imagePickerLauncher.launch("image/*")
-                                            } else {
-                                                imagePermissionLauncher.launch(
-                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES
-                                                    else Manifest.permission.READ_EXTERNAL_STORAGE
-                                                )
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text(if (images.isEmpty()) "选择图片" else "添加图片") }
+                                    Spacer(modifier = Modifier.height(8.dp))
                                 }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (hasImagePermission) {
+                                            pendingImageTemplateId = template.id; imagePickerLauncher.launch("image/*")
+                                        } else {
+                                            imagePermissionLauncher.launch(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(if (images.isEmpty()) "选择图片" else "添加图片") }
                             }
+                            FieldType.VIDEO -> {
+                                val videos = editingImages[template.id] ?: fieldValues[template.id]?.map { it.value ?: "" } ?: emptyList()
+                                if (videos.isNotEmpty()) {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        itemsIndexed(videos) { index, video ->
+                                            Box(modifier = Modifier.size(120.dp).clickable { playingVideo = video }) {
+                                                VideoThumbnail(videoUri = video, modifier = Modifier.fillMaxSize())
+                                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.Center).size(48.dp))
+                                                Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
+                                                    editingImages = editingImages + (template.id to (videos - video)); markDirty()
+                                                }) { Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.padding(4.dp)) }
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (hasImagePermission) {
+                                            pendingImageTemplateId = template.id; imagePickerLauncher.launch("video/*")
+                                        } else {
+                                            imagePermissionLauncher.launch(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(if (videos.isEmpty()) "选择视频" else "添加视频") }
+                            }
+                        }
                     }
                 }
 
@@ -317,11 +361,11 @@ fun PinEditScreen(
                         }
                         templates.forEach { template ->
                             when (template.fieldType) {
-                                FieldType.IMAGE -> {
-                                    val newImages = editingImages[template.id]
-                                    if (newImages != null) {
+                                FieldType.IMAGE, FieldType.VIDEO -> {
+                                    val newMedia = editingImages[template.id]
+                                    if (newMedia != null) {
                                         existingValues.filter { it.fieldTemplateId == template.id }.forEach { valueRepo.deleteFieldValueById(it.id) }
-                                        newImages.forEach { uri ->
+                                        newMedia.forEach { uri ->
                                             valueRepo.insertFieldValue(FieldValue(pinId = id, fieldTemplateId = template.id, value = uri))
                                         }
                                     }
@@ -360,6 +404,22 @@ fun PinEditScreen(
             },
             onDismiss = { showAddFieldDialog = false }
         )
+    }
+
+    playingVideo?.let { videoUrl ->
+        Dialog(onDismissRequest = { playingVideo = null }) {
+            Box(modifier = Modifier.fillMaxSize().clickable { playingVideo = null }) {
+                AndroidView(
+                    factory = { ctx ->
+                        VideoView(ctx).apply {
+                            setVideoURI(Uri.parse(videoUrl))
+                            setOnPreparedListener { it.isLooping = true; start() }
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
     }
 
     if (viewerImages.isNotEmpty()) {

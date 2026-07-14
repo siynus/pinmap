@@ -345,6 +345,8 @@ private fun FieldValueCard(
                         ) { Text("选择图片") }
                     }
                 }
+
+                else -> {}
             }
         }
     }
