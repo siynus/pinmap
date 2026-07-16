@@ -1,0 +1,4 @@
+  File "<string>", line 16
+    print(f'{i+1}: depth={depth:3d} {-
+                                    ^
+SyntaxError: '{' was never closed

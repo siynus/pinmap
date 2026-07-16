@@ -25,10 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.sinus.pinmap.ui.utils.AuthState
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -59,6 +59,7 @@ import androidx.core.net.toUri
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
 import androidx.core.graphics.withClip
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.amap.api.services.core.PoiItemV2
 import com.amap.api.services.poisearch.PoiResultV2
 import com.sinus.pinmap.data.repository.CategoryRepository
@@ -262,7 +263,51 @@ fun MapScreen(
             }
     }
 
+    var showAuthView by remember { mutableStateOf(false) }
+    var authInputKey by remember { mutableStateOf("") }
+
     Box(modifier = modifier.fillMaxSize()) {
+        if (showAuthView) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        "地图 API Key 验证失败",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    Text(
+                        "请输入正确的 API Key：",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = authInputKey,
+                        onValueChange = { authInputKey = it },
+                        label = { Text("API Key") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Button(
+                        onClick = {
+                            if (authInputKey.isNotBlank()) {
+                                AuthState.saveKey(authInputKey)
+                                android.os.Process.killProcess(android.os.Process.myPid())
+                            }
+                        },
+                        enabled = authInputKey.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("保存并重启") }
+                }
+            }
+        } else {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { mapView }
@@ -325,6 +370,13 @@ fun MapScreen(
                     }
                 }
             })
+
+            aMap.setOnMapErrorListener { errorCode ->
+                if (errorCode == 1001) {
+                    AuthState.markFailed()
+                    showAuthView = true
+                }
+            }
         }
 
         // 底部面板：搜索栏 + 搜索结果
@@ -690,4 +742,5 @@ fun MapScreen(
             }
         }
     }
+}
 }

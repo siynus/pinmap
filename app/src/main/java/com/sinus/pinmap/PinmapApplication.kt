@@ -1,13 +1,19 @@
 package com.sinus.pinmap
 
 import android.app.Application
+import android.util.Log
 import com.amap.api.maps.MapsInitializer
+import com.sinus.pinmap.ui.utils.AuthState
 
 class PinmapApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        MapsInitializer.setApiKey(BuildConfig.MAPS_API_KEY)
+        AuthState.init(this)
+        val savedKey = AuthState.getSavedKey()
+        val apiKey = savedKey ?: BuildConfig.MAPS_API_KEY
+        MapsInitializer.setApiKey(apiKey)
+        Log.d("KEY", "amap key: $apiKey")
         MapsInitializer.updatePrivacyShow(this, true, true)
         MapsInitializer.updatePrivacyAgree(this, true)
         System.setProperty("amap.sdk.update.enable", "false")
