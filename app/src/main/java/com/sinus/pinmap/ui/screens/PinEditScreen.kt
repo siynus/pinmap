@@ -1,17 +1,26 @@
 package com.sinus.pinmap.ui.screens
 
+import android.content.ContentValues
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.Manifest
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
 import android.widget.VideoView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
@@ -22,6 +31,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,6 +46,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -43,11 +54,18 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.sinus.pinmap.data.database.PinmapDatabase
@@ -63,15 +81,17 @@ import com.sinus.pinmap.data.repository.PinRepository
 import com.amap.api.services.core.LatLonPoint
 import com.amap.api.services.geocoder.GeocodeSearch
 import com.amap.api.services.geocoder.RegeocodeQuery
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.roundToInt
 import androidx.core.net.toUri
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PinEditScreen(
     pinId: Long,
@@ -111,6 +131,9 @@ fun PinEditScreen(
     var address by remember { mutableStateOf("") }
     var pinLat by remember { mutableDoubleStateOf(lat) }
     var pinLng by remember { mutableDoubleStateOf(lng) }
+    var menuUrl by remember { mutableStateOf<String?>(null) }
+    var menuPosX by remember { mutableFloatStateOf(0f) }
+    var menuPosY by remember { mutableFloatStateOf(0f) }
 
     fun markDirty() { hasChanges = true }
 
@@ -373,9 +396,19 @@ fun PinEditScreen(
                                     }
                                     LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         itemsIndexed(images) { index, img ->
-                                            Box(modifier = Modifier.size(120.dp).clickable {
-                                                viewerImages = images; viewerStartIndex = index
-                                            }) {
+                                            var imgPos by remember { mutableStateOf(Offset.Zero) }
+                                            Box(modifier = Modifier
+                                                .size(120.dp)
+                                                .onGloballyPositioned { imgPos = it.positionInWindow() }
+                                                .combinedClickable(
+                                                    onClick = { viewerImages = images; viewerStartIndex = index },
+                                                    onLongClick = {
+                                                        menuUrl = img
+                                                        menuPosX = imgPos.x
+                                                        menuPosY = imgPos.y
+                                                    }
+                                                )
+                                            ) {
                                                 Image(painter = coil.compose.rememberAsyncImagePainter(img), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                                                 Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
                                                     editingImages = editingImages + (template.id to (images - img)); markDirty()
@@ -403,7 +436,19 @@ fun PinEditScreen(
                                 if (videos.isNotEmpty()) {
                                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         itemsIndexed(videos) { _, video ->
-                                            Box(modifier = Modifier.size(120.dp).clickable { playingVideo = video }) {
+                                            var videoPos by remember { mutableStateOf(Offset.Zero) }
+                                            Box(modifier = Modifier
+                                                .size(120.dp)
+                                                .onGloballyPositioned { videoPos = it.positionInWindow() }
+                                                .combinedClickable(
+                                                    onClick = { playingVideo = video },
+                                                    onLongClick = {
+                                                        menuUrl = video
+                                                        menuPosX = videoPos.x
+                                                        menuPosY = videoPos.y
+                                                    }
+                                                )
+                                            ) {
                                                 VideoThumbnail(videoUri = video, modifier = Modifier.fillMaxSize())
                                                 Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.Center).size(48.dp))
                                                 Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
@@ -543,63 +588,204 @@ fun PinEditScreen(
             onDismissRequest = { viewerImages = emptyList() },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize()
-            ) { page ->
-                val imageUrl = images[page % images.size]
-                var scale by remember { mutableFloatStateOf(1f) }
-                var offsetX by remember { mutableFloatStateOf(0f) }
-                var offsetY by remember { mutableFloatStateOf(0f) }
+            Box(Modifier.fillMaxSize()) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val imageUrl = images[page % images.size]
+                    var scale by remember { mutableFloatStateOf(1f) }
+                    var offsetX by remember { mutableFloatStateOf(0f) }
+                    var offsetY by remember { mutableFloatStateOf(0f) }
+                    val haptic = LocalHapticFeedback.current
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            awaitEachGesture {
-                                awaitFirstDown(requireUnconsumed = false)
-                                var multi = false
-                                var moved = false
-                                do {
-                                    val event = awaitPointerEvent()
-                                    if (event.changes.size >= 2) {
-                                        if (!multi) {
-                                            multi = true
-                                            event.changes.forEach { it.consume() }
-                                        }
-                                        val ch = event.changes
-                                        val currDist = (ch[0].position - ch[1].position).getDistance()
-                                        val prevDist = (ch[0].previousPosition - ch[1].previousPosition).getDistance()
-                                        val zoom = if (prevDist > 0f) currDist / prevDist else 1f
-                                        scale = (scale * zoom).coerceIn(1f, 5f)
-                                        val cx = ch.fold(0f) { a, c -> a + c.position.x } / ch.size
-                                        val cy = ch.fold(0f) { a, c -> a + c.position.y } / ch.size
-                                        val pcx = ch.fold(0f) { a, c -> a + c.previousPosition.x } / ch.size
-                                        val pcy = ch.fold(0f) { a, c -> a + c.previousPosition.y } / ch.size
-                                        offsetX = (offsetX + cx - pcx).coerceIn(-(size.width * (scale - 1)) / 2f, (size.width * (scale - 1)) / 2f)
-                                        offsetY = (offsetY + cy - pcy).coerceIn(-(size.height * (scale - 1)) / 2f, (size.height * (scale - 1)) / 2f)
-                                    } else if (event.type == PointerEventType.Move) {
-                                        val dx = event.changes[0].position.x - event.changes[0].previousPosition.x
-                                        val dy = event.changes[0].position.y - event.changes[0].previousPosition.y
-                                        if (dx * dx + dy * dy > 50f) moved = true
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    var multi = false
+                                    var moved = false
+                                    var longPressed = false
+                                    val longPressJob = scope.launch {
+                                        delay(500L)
+                                        menuUrl = imageUrl
+                                        menuPosX = down.position.x
+                                        menuPosY = down.position.y
+                                        longPressed = true
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     }
-                                } while (event.changes.any { it.pressed })
-                                if (!multi && !moved) viewerImages = emptyList()
+                                    do {
+                                        val event = awaitPointerEvent()
+                                        if (event.changes.size >= 2) {
+                                            if (!multi) {
+                                                multi = true
+                                                longPressJob.cancel()
+                                                event.changes.forEach { it.consume() }
+                                            }
+                                            val ch = event.changes
+                                            val currDist = (ch[0].position - ch[1].position).getDistance()
+                                            val prevDist = (ch[0].previousPosition - ch[1].previousPosition).getDistance()
+                                            val zoom = if (prevDist > 0f) currDist / prevDist else 1f
+                                            scale = (scale * zoom).coerceIn(1f, 5f)
+                                            val cx = ch.fold(0f) { a, c -> a + c.position.x } / ch.size
+                                            val cy = ch.fold(0f) { a, c -> a + c.position.y } / ch.size
+                                            val pcx = ch.fold(0f) { a, c -> a + c.previousPosition.x } / ch.size
+                                            val pcy = ch.fold(0f) { a, c -> a + c.previousPosition.y } / ch.size
+                                            offsetX = (offsetX + cx - pcx).coerceIn(-(size.width * (scale - 1)) / 2f, (size.width * (scale - 1)) / 2f)
+                                            offsetY = (offsetY + cy - pcy).coerceIn(-(size.height * (scale - 1)) / 2f, (size.height * (scale - 1)) / 2f)
+                                        } else if (event.type == PointerEventType.Move) {
+                                            val dx = event.changes[0].position.x - event.changes[0].previousPosition.x
+                                            val dy = event.changes[0].position.y - event.changes[0].previousPosition.y
+                                            if (dx * dx + dy * dy > 50f) {
+                                                moved = true
+                                                longPressJob.cancel()
+                                            }
+                                        }
+                                    } while (event.changes.any { it.pressed })
+                                    longPressJob.cancel()
+                                    if (!longPressed && !multi && !moved) viewerImages = emptyList()
+                                }
                             }
-                        }
-                        .graphicsLayer {
-                            scaleX = scale; scaleY = scale
-                            translationX = offsetX; translationY = offsetY
-                        }
+                            .graphicsLayer {
+                                scaleX = scale; scaleY = scale
+                                translationX = offsetX; translationY = offsetY
+                            }
+                    ) {
+                        Image(
+                            painter = coil.compose.rememberAsyncImagePainter(imageUrl),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
+                if (menuUrl != null) {
+                    Box(Modifier.fillMaxSize().clickable { menuUrl = null })
+                }
+            }
+            menuUrl?.let { url ->
+                val d = LocalDensity.current.density
+                val pw = (180f * d).roundToInt()
+                val ph = (96f * d).roundToInt()
+                val sw = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }.roundToInt()
+                val sh = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }.roundToInt()
+                val x = menuPosX.roundToInt().coerceIn(0, sw - pw)
+                val y = menuPosY.roundToInt().coerceIn(0, sh - ph)
+                Popup(
+                    alignment = Alignment.TopStart,
+                    offset = IntOffset(x, y),
+                    onDismissRequest = { menuUrl = null }
                 ) {
-                    Image(
-                        painter = coil.compose.rememberAsyncImagePainter(imageUrl),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 2.dp,
+                        shadowElevation = 4.dp,
+                        modifier = Modifier.widthIn(max = 180.dp)
+                    ) {
+                        Column {
+                            TextButton(
+                                onClick = { menuUrl = null; saveToGallery(context, url) },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                            ) { Text("保存到相册") }
+                            TextButton(
+                                onClick = {
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cm.setPrimaryClip(ClipData.newPlainText("pinmap_url", url))
+                                    Toast.makeText(context, "已复制地址", Toast.LENGTH_SHORT).show()
+                                    menuUrl = null
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                            ) { Text("复制地址") }
+                        }
+                    }
                 }
             }
         }
+    }
+    menuUrl?.let { url ->
+        val d = LocalDensity.current.density
+        val pw = (180f * d).roundToInt()
+        val ph = (96f * d).roundToInt()
+        val sw = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }.roundToInt()
+        val sh = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }.roundToInt()
+        val x = menuPosX.roundToInt().coerceIn(0, sw - pw)
+        val y = menuPosY.roundToInt().coerceIn(0, sh - ph)
+        Popup(
+            alignment = Alignment.TopStart,
+            offset = IntOffset(x, y),
+            onDismissRequest = { menuUrl = null }
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp,
+                shadowElevation = 4.dp,
+                modifier = Modifier.widthIn(max = 180.dp)
+            ) {
+                Column {
+                    TextButton(
+                        onClick = { menuUrl = null; saveToGallery(context, url) },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                    ) { Text("保存到相册") }
+                    TextButton(
+                        onClick = {
+                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cm.setPrimaryClip(ClipData.newPlainText("pinmap_url", url))
+                            Toast.makeText(context, "已复制地址", Toast.LENGTH_SHORT).show()
+                            menuUrl = null
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                    ) { Text("复制地址") }
+                }
+            }
+        }
+    }
+}
+
+private fun saveToGallery(context: Context, url: String) {
+    try {
+        val file = when {
+            url.startsWith("file://") -> File(url.removePrefix("file://"))
+            url.startsWith("/") -> File(url)
+            else -> return
+        }
+        if (!file.exists()) return
+        val ext = file.extension.lowercase()
+        val isVideo = ext in listOf("mp4", "mov", "3gp", "avi", "mkv")
+        val mime = if (isVideo) "video/$ext" else "image/jpeg"
+        val timestamp = System.currentTimeMillis()
+        val fileName = "pinmap_$timestamp.${if (isVideo) ext else "jpg"}"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+                put(MediaStore.Images.Media.MIME_TYPE, mime)
+                put(MediaStore.Images.Media.RELATIVE_PATH, if (isVideo) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES)
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val collection = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            val resolver = context.contentResolver
+            val uri = resolver.insert(collection, values)
+            uri?.let {
+                resolver.openOutputStream(it)?.use { out ->
+                    file.inputStream().use { inp -> inp.copyTo(out) }
+                }
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(it, values, null, null)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            val dir = Environment.getExternalStoragePublicDirectory(if (isVideo) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES)
+            dir.mkdirs()
+            val dest = File(dir, fileName)
+            file.inputStream().use { inp -> FileOutputStream(dest).use { out -> inp.copyTo(out) } }
+        }
+        Toast.makeText(context, "已保存到${if (isVideo) "视频" else "相册"}", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Log.e("PinEdit", "save failed", e)
+        Toast.makeText(context, "保存失败：${e.message}", Toast.LENGTH_SHORT).show()
     }
 }
