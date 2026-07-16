@@ -3,15 +3,17 @@ package com.sinus.pinmap.ui.screens
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
@@ -92,6 +94,13 @@ fun MapScreen(
 
     val pins by viewModel.pins.collectAsState()
     val categories by categoryRepository.getAllCategories().collectAsState(initial = emptyList())
+    var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
+    val filteredPins by remember(pins, selectedCategoryId) {
+        derivedStateOf {
+            if (selectedCategoryId == null) pins
+            else pins.filter { it.categoryId == selectedCategoryId }
+        }
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     var showSearchResults by remember { mutableStateOf(false) }
@@ -319,65 +328,6 @@ fun MapScreen(
             })
         }
 
-        // 菜单按钮 - 放在左下角
-        SmallFloatingActionButton(
-            onClick = onOpenDrawer,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = 80.dp),
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            Icon(Icons.Default.Menu, contentDescription = "菜单")
-        }
-
-        // 定位按钮 - 放在搜索框右上方
-        SmallFloatingActionButton(
-            onClick = {
-                if (!hasLocationPermission) {
-                    // 没有权限，请求权限
-                    locationPermissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        )
-                    )
-                } else {
-                    // 有权限，执行定位
-                    scope.launch {
-                        val locationResult = locationManager.getCurrentLocation()
-                        if (locationResult.isSuccess) {
-                            val location = locationResult.getOrNull()
-                            if (location != null) {
-                                val aMap = mapHolder.aMap ?: return@launch
-
-                                // 移除旧的当前位置标记
-                                myLocationMarker?.remove()
-
-                                // 添加新的当前位置标记
-                                val markerOptions = MarkerOptions()
-                                    .position(location)
-                                    .title("当前位置")
-                                    .draggable(false)
-                                    .snippet("你在当前位置")
-
-                                val marker = aMap.addMarker(markerOptions)
-                                myLocationMarker = marker
-
-                                // 移动地图到当前位置
-                                aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15f))
-                            }
-                        }
-                    }
-                }
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 80.dp),
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
-        }
-
         // 底部面板：搜索栏 + 搜索结果
         Column(
             modifier = Modifier
@@ -563,13 +513,100 @@ fun MapScreen(
             }
         }
 
+        // 分类筛选按钮 - 左下角
+        var showCategoryFilter by remember { mutableStateOf(false) }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 16.dp, bottom = searchBottom + 64.dp)
+        ) {
+            SmallFloatingActionButton(
+                onClick = { showCategoryFilter = true },
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Icon(Icons.Default.Menu, contentDescription = "筛选分类")
+            }
+            DropdownMenu(
+                expanded = showCategoryFilter,
+                onDismissRequest = { showCategoryFilter = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("全部") },
+                    onClick = { selectedCategoryId = null; showCategoryFilter = false },
+                    leadingIcon = if (selectedCategoryId == null) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                )
+                categories.forEach { category ->
+                    DropdownMenuItem(
+                        text = { Text(category.name) },
+                        onClick = { selectedCategoryId = category.id; showCategoryFilter = false },
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .background(Color(category.color), CircleShape)
+                            )
+                        },
+                        trailingIcon = if (selectedCategoryId == category.id) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                    )
+                }
+            }
+        }
+
+        // 定位按钮 - 放在搜索框右侧
+        SmallFloatingActionButton(
+            onClick = {
+                if (!hasLocationPermission) {
+                    // 没有权限，请求权限
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                } else {
+                    // 有权限，执行定位
+                    scope.launch {
+                        val locationResult = locationManager.getCurrentLocation()
+                        if (locationResult.isSuccess) {
+                            val location = locationResult.getOrNull()
+                            if (location != null) {
+                                val aMap = mapHolder.aMap ?: return@launch
+
+                                // 移除旧的当前位置标记
+                                myLocationMarker?.remove()
+
+                                // 添加新的当前位置标记
+                                val markerOptions = MarkerOptions()
+                                    .position(location)
+                                    .title("当前位置")
+                                    .draggable(false)
+                                    .snippet("你在当前位置")
+
+                                val marker = aMap.addMarker(markerOptions)
+                                myLocationMarker = marker
+
+                                // 移动地图到当前位置
+                                aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15f))
+                            }
+                        }
+                    }
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = searchBottom + 64.dp),
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
+        }
+
         // 监听 pins 变化，更新地图标记
-        LaunchedEffect(pins, categories) {
+        LaunchedEffect(filteredPins, categories) {
             val aMap = mapHolder.aMap ?: return@LaunchedEffect
 
             aMap.clear()
 
-            pins.forEach { pin ->
+            filteredPins.forEach { pin ->
                 val color = categories.find { it.id == pin.categoryId }?.color ?: 0xFF666666.toInt()
                 val label = pin.title.take(1)
 
