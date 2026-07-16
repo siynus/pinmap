@@ -621,7 +621,7 @@ fun MapScreen(
                 val canvas = Canvas(bubble)
 
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-                paint.color = 0xFFFFFFFF.toInt()
+                paint.color = color
 
                 // Bubble body (rounded rect)
                 val bodyB = totalH - arrowH - 4f
