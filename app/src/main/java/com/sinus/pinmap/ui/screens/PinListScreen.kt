@@ -59,135 +59,124 @@ fun PinListScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text("标记列表") }
-                )
+    Column(modifier = modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { viewModel.setSearchQuery(it) },
+            placeholder = { Text("搜索标记...") },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null)
+            },
+            trailingIcon = if (searchQuery.isNotBlank()) {
+                {
+                    IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                        Icon(Icons.Default.Clear, contentDescription = "清除搜索")
+                    }
+                }
+            } else null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            singleLine = true
+        )
 
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.setSearchQuery(it) },
-                    placeholder = { Text("搜索标记...") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null)
-                    },
-                    trailingIcon = if (searchQuery.isNotBlank()) {
-                        {
-                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "清除搜索")
-                            }
-                        }
-                    } else null,
+        // 分类筛选 + 排序
+        if (categories.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    singleLine = true
-                )
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedCategoryId == null,
+                        onClick = { viewModel.setSelectedCategory(null) },
+                        label = { Text("全部") },
+                        modifier = Modifier.height(36.dp)
+                    )
 
-                // 分类筛选 + 排序
-                if (categories.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    categories.forEach { category ->
+                        FilterChip(
+                            selected = selectedCategoryId == category.id,
+                            onClick = { viewModel.setSelectedCategory(category.id) },
+                            label = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .background(Color(category.color), CircleShape)
+                                    )
+                                    Text(category.name)
+                                }
+                            },
+                            modifier = Modifier.height(36.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Box {
+                    var sortExpanded by remember { mutableStateOf(false) }
+                    val sortLabel = when (sortMode) {
+                        SortMode.CREATED_DESC -> "最新"
+                        SortMode.NAME_ASC -> "名称↑"
+                        SortMode.NAME_DESC -> "名称↓"
+                        SortMode.DISTANCE_ASC -> "最近"
+                    }
+                    TextButton(
+                        onClick = { sortExpanded = true },
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = selectedCategoryId == null,
-                                onClick = { viewModel.setSelectedCategory(null) },
-                                label = { Text("全部") },
-                                modifier = Modifier.height(36.dp)
-                            )
-
-                            categories.forEach { category ->
-                                FilterChip(
-                                    selected = selectedCategoryId == category.id,
-                                    onClick = { viewModel.setSelectedCategory(category.id) },
-                                    label = {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(12.dp)
-                                                    .background(Color(category.color), CircleShape)
-                                            )
-                                            Text(category.name)
-                                        }
-                                    },
-                                    modifier = Modifier.height(36.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        Box {
-                            var sortExpanded by remember { mutableStateOf(false) }
-                            val sortLabel = when (sortMode) {
-                                SortMode.CREATED_DESC -> "最新"
-                                SortMode.NAME_ASC -> "名称↑"
-                                SortMode.NAME_DESC -> "名称↓"
-                                SortMode.DISTANCE_ASC -> "最近"
-                            }
-                            TextButton(
-                                onClick = { sortExpanded = true },
-                                contentPadding = PaddingValues(horizontal = 8.dp)
-                            ) {
-                                Text(sortLabel, style = MaterialTheme.typography.labelMedium)
-                                Icon(
-                                    Icons.Default.ArrowDropDown,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = sortExpanded,
-                                onDismissRequest = { sortExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("最近") },
-                                    onClick = { viewModel.setSortMode(SortMode.DISTANCE_ASC); sortExpanded = false },
-                                    leadingIcon = if (sortMode == SortMode.DISTANCE_ASC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("名称↑") },
-                                    onClick = { viewModel.setSortMode(SortMode.NAME_ASC); sortExpanded = false },
-                                    leadingIcon = if (sortMode == SortMode.NAME_ASC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("名称↓") },
-                                    onClick = { viewModel.setSortMode(SortMode.NAME_DESC); sortExpanded = false },
-                                    leadingIcon = if (sortMode == SortMode.NAME_DESC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("最新") },
-                                    onClick = { viewModel.setSortMode(SortMode.CREATED_DESC); sortExpanded = false },
-                                    leadingIcon = if (sortMode == SortMode.CREATED_DESC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
-                                )
-                            }
-                        }
+                        Text(sortLabel, style = MaterialTheme.typography.labelMedium)
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = sortExpanded,
+                        onDismissRequest = { sortExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("最近") },
+                            onClick = { viewModel.setSortMode(SortMode.DISTANCE_ASC); sortExpanded = false },
+                            leadingIcon = if (sortMode == SortMode.DISTANCE_ASC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                        )
+                        DropdownMenuItem(
+                            text = { Text("名称↑") },
+                            onClick = { viewModel.setSortMode(SortMode.NAME_ASC); sortExpanded = false },
+                            leadingIcon = if (sortMode == SortMode.NAME_ASC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                        )
+                        DropdownMenuItem(
+                            text = { Text("名称↓") },
+                            onClick = { viewModel.setSortMode(SortMode.NAME_DESC); sortExpanded = false },
+                            leadingIcon = if (sortMode == SortMode.NAME_DESC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                        )
+                        DropdownMenuItem(
+                            text = { Text("最新") },
+                            onClick = { viewModel.setSortMode(SortMode.CREATED_DESC); sortExpanded = false },
+                            leadingIcon = if (sortMode == SortMode.CREATED_DESC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                        )
                     }
                 }
             }
-        },
-        modifier = modifier
-    ) { paddingValues ->
+        }
+
         if (pins.isEmpty()) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(bottom = 96.dp),
+                    .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -217,8 +206,8 @@ fun PinListScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
+                    .weight(1f),
+                contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(pins) { pin ->

@@ -1,11 +1,11 @@
 package com.sinus.pinmap
 
-import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -27,7 +27,6 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
-    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -79,49 +78,54 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        Scaffold(
-                            modifier = Modifier.fillMaxSize(),
-                            topBar = {
-                                if (isTabScreen) {
-                                    TopAppBar(
-                                        title = { Text("Pinmap") },
-                                        navigationIcon = {
-                                            IconButton(onClick = {
-                                                scope.launch { drawerState.open() }
-                                            }) {
-                                                Icon(Icons.Default.Menu, contentDescription = "菜单")
-                                            }
+                    Column(Modifier.fillMaxSize()) {
+                        if (isTabScreen) {
+                            TopAppBar(
+                                title = {
+                                    Text(
+                                        when (currentRoute) {
+                                            Screen.Map.route -> "地图"
+                                            Screen.PinList.route -> "标记列表"
+                                            Screen.CategoryList.route -> "分类管理"
+                                            else -> "Pinmap"
                                         }
                                     )
-                                }
-                            },
-                            bottomBar = {
-                                if (isTabScreen) {
-                                    NavigationBar {
-                                        tabs.filter { it.visible }.forEach { tab ->
-                                            NavigationBarItem(
-                                                selected = currentRoute == tab.route,
-                                                onClick = {
-                                                    if (currentRoute != tab.route) {
-                                                        navController.navigate(tab.route) {
-                                                            popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                                            launchSingleTop = true
-                                                        }
-                                                    }
-                                                },
-                                                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                                                label = { Text(tab.label) }
-                                            )
-                                        }
+                                },
+                                navigationIcon = {
+                                    IconButton(onClick = {
+                                        scope.launch { drawerState.open() }
+                                    }) {
+                                        Icon(Icons.Default.Menu, contentDescription = "菜单")
                                     }
                                 }
-                            }
-                        ) {
+                            )
+                        }
+
+                        Box(Modifier.weight(1f)) {
                             PinmapNavGraph(
                                 navController = navController,
                                 onOpenDrawer = { scope.launch { drawerState.open() } }
                             )
+                        }
+
+                        if (isTabScreen) {
+                            NavigationBar {
+                                tabs.filter { it.visible }.forEach { tab ->
+                                    NavigationBarItem(
+                                        selected = currentRoute == tab.route,
+                                        onClick = {
+                                            if (currentRoute != tab.route) {
+                                                navController.navigate(tab.route) {
+                                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                                    launchSingleTop = true
+                                                }
+                                            }
+                                        },
+                                        icon = { Icon(tab.icon, contentDescription = tab.label) },
+                                        label = { Text(tab.label) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }

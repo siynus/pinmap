@@ -3,6 +3,7 @@ package com.sinus.pinmap.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +18,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -24,6 +29,7 @@ import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.ui.viewmodel.CategoryViewModel
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,24 +48,18 @@ fun CategoryListScreen(
     var categoryToDelete by remember { mutableStateOf<Category?>(null) }
     var categoryToEdit by remember { mutableStateOf<Category?>(null) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("分类列表") }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true }
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "创建分类")
-            }
-        },
-        modifier = modifier.padding(bottom = 80.dp)
-    ) { paddingValues ->
+    var parentW by remember { mutableIntStateOf(0) }
+    var parentH by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val fabPaddingPx = with(density) { 16.dp.toPx() }
+    val fabSizePx = with(density) { 56.dp.toPx() }
+    var fabDx by remember { mutableFloatStateOf(0f) }
+    var fabDy by remember { mutableFloatStateOf(0f) }
+
+    Box(modifier = modifier.fillMaxSize().onSizeChanged { parentW = it.width; parentH = it.height }) {
         if (categories.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -69,7 +69,7 @@ fun CategoryListScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -103,6 +103,29 @@ fun CategoryListScreen(
                     }
                 }
             }
+        }
+
+        FloatingActionButton(
+            onClick = { showCreateDialog = true },
+            modifier = Modifier
+                .offset { IntOffset(fabDx.roundToInt(), fabDy.roundToInt()) }
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .pointerInput(parentW, parentH) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        fabDx = (fabDx + dragAmount.x).coerceIn(
+                            -(parentW - fabPaddingPx - fabSizePx),
+                            fabPaddingPx
+                        )
+                        fabDy = (fabDy + dragAmount.y).coerceIn(
+                            -(parentH - fabPaddingPx - fabSizePx),
+                            fabPaddingPx
+                        )
+                    }
+                }
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "创建分类")
         }
     }
 

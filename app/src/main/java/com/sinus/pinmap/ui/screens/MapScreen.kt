@@ -253,13 +253,15 @@ fun MapScreen(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val imeInsets = WindowInsets.ime
-    val navigationBarsInsets = WindowInsets.navigationBars
-    var searchBottom by remember { mutableStateOf(96.dp) }
+    var searchBottom by remember { mutableStateOf(16.dp) }
     LaunchedEffect(imeInsets) {
         snapshotFlow { imeInsets.getBottom(density) }
             .collect { imePx ->
-                searchBottom = if (imePx > 0) with(density) { imePx.toDp() } + 16.dp else 104.dp
-                Log.d("MapScreen", "imePx=$imePx searchBottom=$searchBottom navBarDp=${with(density) { navigationBarsInsets.getBottom(density).toDp() }}")
+                searchBottom = if (imePx > 0) {
+                    (with(density) { imePx.toDp() } - 80.dp).coerceAtLeast(0.dp)
+                } else {
+                    16.dp
+                }
             }
     }
 
@@ -351,7 +353,10 @@ fun MapScreen(
                                 Text(
                                     "标记",
                                     style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                    modifier = Modifier.padding(
+                                        horizontal = 16.dp,
+                                        vertical = 4.dp
+                                    ),
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -398,7 +403,10 @@ fun MapScreen(
                                 Text(
                                     "地址",
                                     style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                    modifier = Modifier.padding(
+                                        horizontal = 16.dp,
+                                        vertical = 4.dp
+                                    ),
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -533,7 +541,9 @@ fun MapScreen(
                 DropdownMenuItem(
                     text = { Text("全部") },
                     onClick = { selectedCategoryId = null; showCategoryFilter = false },
-                    leadingIcon = if (selectedCategoryId == null) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                    leadingIcon = if (selectedCategoryId == null) {
+                        { Icon(Icons.Default.Check, contentDescription = null) }
+                    } else null
                 )
                 categories.forEach { category ->
                     DropdownMenuItem(
@@ -546,7 +556,9 @@ fun MapScreen(
                                     .background(Color(category.color), CircleShape)
                             )
                         },
-                        trailingIcon = if (selectedCategoryId == category.id) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                        trailingIcon = if (selectedCategoryId == category.id) {
+                            { Icon(Icons.Default.Check, contentDescription = null) }
+                        } else null
                     )
                 }
             }
