@@ -285,7 +285,7 @@ fun MapScreen(
     LaunchedEffect(imeInsets) {
         snapshotFlow { imeInsets.getBottom(density) }
             .collect { imePx ->
-                searchBottom = if (imePx > 0) with(density) { imePx.toDp() } + 16.dp else 112.dp
+                searchBottom = if (imePx > 0) with(density) { imePx.toDp() } + 16.dp else 104.dp
                 Log.d("MapScreen", "imePx=$imePx searchBottom=$searchBottom navBarDp=${with(density) { navigationBarsInsets.getBottom(density).toDp() }}")
             }
     }

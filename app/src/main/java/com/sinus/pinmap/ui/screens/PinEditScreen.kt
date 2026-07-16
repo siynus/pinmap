@@ -147,7 +147,7 @@ fun PinEditScreen(
                 }
                 override fun onGeocodeSearched(result: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
             })
-            search.getFromLocationAsyn(RegeocodeQuery(LatLonPoint(lat, lng), 200f, GeocodeSearch.AMAP))
+            search.getFromLocationAsyn(RegeocodeQuery(LatLonPoint(pinLat, pinLng), 200f, GeocodeSearch.AMAP))
         }
     }
 

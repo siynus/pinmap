@@ -117,11 +117,10 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                        ) { paddingValues ->
+                        ) {
                             PinmapNavGraph(
                                 navController = navController,
-                                onOpenDrawer = { scope.launch { drawerState.open() } },
-                                modifier = Modifier.padding(paddingValues)
+                                onOpenDrawer = { scope.launch { drawerState.open() } }
                             )
                         }
                     }

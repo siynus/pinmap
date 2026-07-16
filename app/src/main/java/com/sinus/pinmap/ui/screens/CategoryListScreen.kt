@@ -56,7 +56,7 @@ fun CategoryListScreen(
                 Icon(Icons.Default.Add, contentDescription = "创建分类")
             }
         },
-        modifier = modifier
+        modifier = modifier.padding(bottom = 80.dp)
     ) { paddingValues ->
         if (categories.isEmpty()) {
             Box(
