@@ -97,9 +97,9 @@ fun PinEditScreen(
     var playingVideo by remember { mutableStateOf<String?>(null) }
     val thumbnailCache = remember { mutableStateMapOf<String, androidx.compose.ui.graphics.ImageBitmap>() }
     var hasChanges by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
+    var pinId by remember { mutableStateOf(pinId) }
 
-    fun markDirty() { if (!isCreate) hasChanges = true }
+    fun markDirty() { hasChanges = true }
 
     LaunchedEffect(Unit) {
         categories = categoryRepository.getAllCategories().first()
@@ -341,18 +341,23 @@ fun PinEditScreen(
             }
 
             Button(
-                onClick = {
-                    saving = true
-                    scope.launch {
-                        val categoryId = selectedCategory?.id ?: return@launch
-                        val id = if (isCreate) {
-                            pinRepository.insertPin(Pin(latitude = lat, longitude = lng, title = title, categoryId = categoryId))
-                        } else {
-                            pinRepository.getPinById(pinId)?.let { pin ->
-                                pinRepository.updatePin(pin.copy(title = title, categoryId = categoryId))
+                    onClick = {
+                        hasChanges = false
+                        scope.launch {
+                            val categoryId = selectedCategory?.id ?: return@launch
+                            val id = when {
+                                pinId == 0L -> {
+                                    val newId = pinRepository.insertPin(Pin(latitude = lat, longitude = lng, title = title, categoryId = categoryId))
+                                    pinId = newId
+                                    newId
+                                }
+                                else -> {
+                                    pinRepository.getPinById(pinId)?.let { pin ->
+                                        pinRepository.updatePin(pin.copy(title = title, categoryId = categoryId))
+                                    }
+                                    pinId
+                                }
                             }
-                            pinId
-                        }
                         val existingValues = valueRepo.getFieldValuesByPin(id).first()
                         existingValues.forEach { fv ->
                             if (fv.fieldTemplateId !in templates.map { it.id }) {
@@ -381,12 +386,11 @@ fun PinEditScreen(
                                 }
                             }
                         }
-                        saving = false
                         hasChanges = false
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                enabled = title.isNotBlank() && selectedCategory != null && (isCreate || hasChanges) && !saving
+                enabled = title.isNotBlank() && selectedCategory != null && hasChanges
             ) { Text("保存") }
         }
     }
