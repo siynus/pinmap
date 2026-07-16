@@ -614,9 +614,9 @@ fun MapScreen(
                     }
                 }
 
-                val size = context.resources.displayMetrics.density.let { d -> (72 * d).toInt() }
+                val size = context.resources.displayMetrics.density.let { d -> (48 * d).toInt() }
                 val arrowH = (12 * context.resources.displayMetrics.density).toInt()
-                val totalH = (size * 1.25f).toInt() + arrowH
+                val totalH = size + arrowH
                 val bubble = createBitmap(size, totalH)
                 val canvas = Canvas(bubble)
 
@@ -640,16 +640,17 @@ fun MapScreen(
                 canvas.drawPath(arrowPath, paint)
 
                 val cx = size / 2f
-                val cy = (size * 1.25f) / 2f - 8f
-                val r = size / 2f - 16f
+                val cy = size / 2f
+                val r = size / 2f - 8f
 
                 if (avatarBitmap != null) {
-                    val scaled = avatarBitmap.scale((r * 2).toInt(), (r * 2).toInt())
+                    val avatarR = r * 0.8f
+                    val scaled = avatarBitmap.scale((avatarR * 2).toInt(), (avatarR * 2).toInt())
                     val clipPath = android.graphics.Path()
-                        .apply { addCircle(cx, cy, r, android.graphics.Path.Direction.CW) }
+                        .apply { addCircle(cx, cy, avatarR, android.graphics.Path.Direction.CW) }
                     canvas.save()
                     canvas.clipPath(clipPath)
-                    canvas.drawBitmap(scaled, cx - r, cy - r, null)
+                    canvas.drawBitmap(scaled, cx - avatarR, cy - avatarR, null)
                     canvas.restore()
                 } else {
                     paint.color = color
