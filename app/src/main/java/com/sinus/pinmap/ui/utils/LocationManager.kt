@@ -12,6 +12,10 @@ import com.amap.api.location.AMapLocationListener
 import com.amap.api.maps.model.LatLng
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * 位置管理器
@@ -191,4 +195,14 @@ class LocationManager(private val context: Context) {
     fun aMapLocationToLatLng(location: Location): LatLng {
         return LatLng(location.latitude, location.longitude)
     }
+}
+
+fun haversineDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {
+    val R = 6371000f
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLng = Math.toRadians(lng2 - lng1)
+    val sinLat = sin(dLat / 2)
+    val sinLng = sin(dLng / 2)
+    val a = sinLat * sinLat + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sinLng * sinLng
+    return (R * 2 * atan2(sqrt(a), sqrt(1 - a))).toFloat()
 }

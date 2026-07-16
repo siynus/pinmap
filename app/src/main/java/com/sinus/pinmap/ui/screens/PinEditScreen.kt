@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import android.os.Build
 import android.widget.VideoView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,6 +61,10 @@ import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
+import com.amap.api.maps.model.LatLng
+import com.amap.api.services.core.LatLonPoint
+import com.amap.api.services.geocoder.GeocodeSearch
+import com.amap.api.services.geocoder.RegeocodeQuery
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -82,6 +88,7 @@ fun PinEditScreen(
     val templateRepo = remember { FieldTemplateRepository(database.fieldTemplateStore()) }
     val valueRepo = remember { FieldValueRepository(database.fieldValueStore()) }
 
+    Log.d("PinEdit", "params: pinId=$pinId lat=$lat lng=$lng")
     val isCreate = pinId == 0L
 
     var title by remember { mutableStateOf("") }
@@ -102,6 +109,9 @@ fun PinEditScreen(
     var avatarPath by remember { mutableStateOf<String?>(null) }
     var editingAvatar by remember { mutableStateOf<String?>(null) }
     var avatarDeleted by remember { mutableStateOf(false) }
+    var address by remember { mutableStateOf("") }
+    var pinLat by remember { mutableStateOf(lat) }
+    var pinLng by remember { mutableStateOf(lng) }
 
     fun markDirty() { hasChanges = true }
 
@@ -112,12 +122,32 @@ fun PinEditScreen(
                 title = pin.title
                 selectedCategory = categories.find { it.id == pin.categoryId }
                 avatarPath = pin.avatarPath
+                address = pin.address ?: ""
+                pinLat = pin.latitude
+                pinLng = pin.longitude
                 selectedCategory?.let { cat ->
                     templates = templateRepo.getFieldTemplatesByCategory(cat.id).first()
                 }
                 val values = valueRepo.getFieldValuesByPin(pinId).first()
                 fieldValues = values.groupBy { it.fieldTemplateId ?: it.id }
             }
+        }
+    }
+
+    LaunchedEffect(isCreate, pinLat, pinLng) {
+        if (isCreate && (pinLat != 0.0 || pinLng != 0.0)) {
+            Log.d("PinEdit", "auto geocode: lat=$pinLat lng=$pinLng")
+            val search = GeocodeSearch(context)
+            search.setOnGeocodeSearchListener(object : GeocodeSearch.OnGeocodeSearchListener {
+                override fun onRegeocodeSearched(result: com.amap.api.services.geocoder.RegeocodeResult?, code: Int) {
+                    Log.d("PinEdit", "auto onRegeocodeSearched: code=$code result=$result")
+                    if (code == 1000 && result != null) {
+                        address = result.regeocodeAddress.formatAddress
+                    }
+                }
+                override fun onGeocodeSearched(result: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
+            })
+            search.getFromLocationAsyn(RegeocodeQuery(LatLonPoint(lat, lng), 200f, GeocodeSearch.AMAP))
         }
     }
 
@@ -255,6 +285,39 @@ fun PinEditScreen(
                 }
 
                 item {
+                    OutlinedTextField(
+                        value = address,
+                        onValueChange = { address = it; markDirty() },
+                        label = { Text("地址") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    scope.launch {
+                                        Log.d("PinEdit", "manual geocode: lat=$pinLat lng=$pinLng")
+                                        val search = GeocodeSearch(context)
+                                        search.setOnGeocodeSearchListener(object : GeocodeSearch.OnGeocodeSearchListener {
+                                            override fun onRegeocodeSearched(result: com.amap.api.services.geocoder.RegeocodeResult?, code: Int) {
+                                                Log.d("PinEdit", "onRegeocodeSearched: code=$code result=$result")
+                                                if (code == 1000 && result != null) {
+                                                    address = result.regeocodeAddress.formatAddress
+                                                    markDirty()
+                                                }
+                                            }
+                                            override fun onGeocodeSearched(result: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
+                                        })
+                                        search.getFromLocationAsyn(RegeocodeQuery(LatLonPoint(pinLat, pinLng), 200f, GeocodeSearch.AMAP))
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Default.LocationOn, contentDescription = "获取当前位置地址")
+                            }
+                        }
+                    )
+                }
+
+                item {
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
                             value = selectedCategory?.name ?: "", onValueChange = {}, readOnly = true, label = { Text("分类") },
@@ -382,7 +445,7 @@ fun PinEditScreen(
                                 editingAvatar != null -> editingAvatar
                                 else -> avatarPath
                             }
-                            val newId = pinRepository.insertPin(Pin(latitude = lat, longitude = lng, title = title, categoryId = categoryId, avatarPath = finalAvatar))
+                            val newId = pinRepository.insertPin(Pin(latitude = lat, longitude = lng, title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
                                     pinId = newId
                                     newId
                                 }
@@ -393,7 +456,7 @@ fun PinEditScreen(
                                             editingAvatar != null -> editingAvatar
                                             else -> avatarPath
                                         }
-                                        pinRepository.updatePin(pin.copy(title = title, categoryId = categoryId, avatarPath = finalAvatar))
+                                        pinRepository.updatePin(pin.copy(title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
                                     }
                                     pinId
                                 }

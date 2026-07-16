@@ -8,8 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
@@ -18,23 +19,25 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sinus.pinmap.data.database.PinmapDatabase
+import com.sinus.pinmap.data.entity.Pin
 import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.PinRepository
+import com.sinus.pinmap.ui.utils.LocationManager
+import com.sinus.pinmap.ui.utils.haversineDistance
 import com.sinus.pinmap.ui.viewmodel.PinListViewModel
+import com.sinus.pinmap.ui.viewmodel.SortMode
 
-/**
- * 标记列表页面
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PinListScreen(
     onPinClick: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
     val pinRepository = remember { PinRepository(database.pinStore()) }
     val categoryRepository = remember { CategoryRepository(database.categoryStore()) }
@@ -44,8 +47,17 @@ fun PinListScreen(
     val categories by viewModel.categories.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
+    val sortMode by viewModel.sortMode.collectAsState()
 
-    var showDeleteDialog by remember { mutableStateOf<com.sinus.pinmap.data.entity.Pin?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<Pin?>(null) }
+
+    LaunchedEffect(Unit) {
+        val locationManager = LocationManager(context)
+        if (locationManager.hasLocationPermission()) {
+            val (loc, _) = locationManager.getLastLocation()
+            viewModel.setCurrentLocation(loc.latitude, loc.longitude)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -54,7 +66,6 @@ fun PinListScreen(
                     title = { Text("标记列表") }
                 )
 
-                // 搜索栏
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { viewModel.setSearchQuery(it) },
@@ -75,43 +86,95 @@ fun PinListScreen(
                     singleLine = true
                 )
 
-                // 分类筛选
+                // 分类筛选 + 排序
                 if (categories.isNotEmpty()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 全部选项
-                        FilterChip(
-                            selected = selectedCategoryId == null,
-                            onClick = { viewModel.setSelectedCategory(null) },
-                            label = { Text("全部") },
-                            modifier = Modifier.height(36.dp)
-                        )
-
-                        // 分类选项
-                        categories.forEach { category ->
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             FilterChip(
-                                selected = selectedCategoryId == category.id,
-                                onClick = { viewModel.setSelectedCategory(category.id) },
-                                label = {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(12.dp)
-                                                .background(Color(category.color), CircleShape)
-                                        )
-                                        Text(category.name)
-                                    }
-                                },
+                                selected = selectedCategoryId == null,
+                                onClick = { viewModel.setSelectedCategory(null) },
+                                label = { Text("全部") },
                                 modifier = Modifier.height(36.dp)
                             )
+
+                            categories.forEach { category ->
+                                FilterChip(
+                                    selected = selectedCategoryId == category.id,
+                                    onClick = { viewModel.setSelectedCategory(category.id) },
+                                    label = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(12.dp)
+                                                    .background(Color(category.color), CircleShape)
+                                            )
+                                            Text(category.name)
+                                        }
+                                    },
+                                    modifier = Modifier.height(36.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        Box {
+                            var sortExpanded by remember { mutableStateOf(false) }
+                            val sortLabel = when (sortMode) {
+                                SortMode.CREATED_DESC -> "最新"
+                                SortMode.NAME_ASC -> "名称↑"
+                                SortMode.NAME_DESC -> "名称↓"
+                                SortMode.DISTANCE_ASC -> "最近"
+                            }
+                            TextButton(
+                                onClick = { sortExpanded = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Text(sortLabel, style = MaterialTheme.typography.labelMedium)
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = sortExpanded,
+                                onDismissRequest = { sortExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("最近") },
+                                    onClick = { viewModel.setSortMode(SortMode.DISTANCE_ASC); sortExpanded = false },
+                                    leadingIcon = if (sortMode == SortMode.DISTANCE_ASC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("名称↑") },
+                                    onClick = { viewModel.setSortMode(SortMode.NAME_ASC); sortExpanded = false },
+                                    leadingIcon = if (sortMode == SortMode.NAME_ASC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("名称↓") },
+                                    onClick = { viewModel.setSortMode(SortMode.NAME_DESC); sortExpanded = false },
+                                    leadingIcon = if (sortMode == SortMode.NAME_DESC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("最新") },
+                                    onClick = { viewModel.setSortMode(SortMode.CREATED_DESC); sortExpanded = false },
+                                    leadingIcon = if (sortMode == SortMode.CREATED_DESC) {{ Icon(Icons.Default.Check, contentDescription = null) }} else null
+                                )
+                            }
                         }
                     }
                 }
@@ -120,7 +183,6 @@ fun PinListScreen(
         modifier = modifier
     ) { paddingValues ->
         if (pins.isEmpty()) {
-            // 空状态
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -162,6 +224,10 @@ fun PinListScreen(
                     PinItem(
                         pin = pin,
                         category = categories.find { it.id == pin.categoryId },
+                        distanceKm = haversineDistance(
+                            viewModel.currentLat, viewModel.currentLng,
+                            pin.latitude, pin.longitude
+                        ) / 1000f,
                         onClick = { onPinClick(pin.id) },
                         onDelete = { showDeleteDialog = pin }
                     )
@@ -170,7 +236,6 @@ fun PinListScreen(
         }
     }
 
-    // 删除确认对话框
     showDeleteDialog?.let { pin ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
@@ -200,13 +265,11 @@ fun PinListScreen(
     }
 }
 
-/**
- * 标记列表项
- */
 @Composable
 private fun PinItem(
-    pin: com.sinus.pinmap.data.entity.Pin,
+    pin: Pin,
     category: com.sinus.pinmap.data.entity.Category?,
+    distanceKm: Float,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -227,7 +290,6 @@ private fun PinItem(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                // 分类颜色指示器
                 if (category != null) {
                     Box(
                         modifier = Modifier
@@ -245,15 +307,25 @@ private fun PinItem(
                     )
                 }
 
-                // 标记信息
                 Column(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = pin.title,
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = pin.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = if (distanceKm < 1f) "<1km" else "%.1fkm".format(distanceKm),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF4CAF50)
+                        )
+                    }
                     pin.description?.let { description ->
                         Text(
                             text = description,
@@ -262,15 +334,16 @@ private fun PinItem(
                             maxLines = 1
                         )
                     }
-                    Text(
-                        text = "${pin.latitude}, ${pin.longitude}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    pin.address?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
-            // 删除按钮
             IconButton(
                 onClick = onDelete,
                 colors = IconButtonDefaults.iconButtonColors(
