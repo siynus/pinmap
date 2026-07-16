@@ -71,7 +71,7 @@ fun OfflineMapScreen(modifier: Modifier = Modifier) {
                 ) {
                     items(filteredCities) { city ->
                         val pair = states[city.city]
-                        val state = pair?.first ?: city.getState()
+                        val state = pair?.first ?: city.state
                         val progress = pair?.second ?: city.getcompleteCode()
                         val downloaded = state == OfflineMapStatus.SUCCESS
                         val downloading = state == OfflineMapStatus.LOADING || state == OfflineMapStatus.UNZIP || state == OfflineMapStatus.WAITING
@@ -89,7 +89,7 @@ fun OfflineMapScreen(modifier: Modifier = Modifier) {
                                             downloaded -> "已完成"
                                             downloading -> "下载中 $progress%"
                                             paused -> "已暂停 $progress%"
-                                            else -> "${city.getSize() / (1024 * 1024)}MB"
+                                            else -> "${city.size / (1024 * 1024)}MB"
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant

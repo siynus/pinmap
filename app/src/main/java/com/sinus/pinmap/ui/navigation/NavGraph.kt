@@ -13,9 +13,7 @@ import com.sinus.pinmap.ui.screens.CategoryListScreen
 import com.sinus.pinmap.ui.screens.FieldTemplatesScreen
 import com.sinus.pinmap.ui.screens.MapScreen
 import com.sinus.pinmap.ui.screens.OfflineMapScreen
-import com.sinus.pinmap.ui.screens.PinDetailScreen
 import com.sinus.pinmap.ui.screens.PinEditScreen
-import com.sinus.pinmap.ui.screens.PinFieldsScreen
 import com.sinus.pinmap.ui.screens.PinListScreen
 
 @Composable
@@ -69,33 +67,6 @@ fun PinmapNavGraph(
                 pinId = pinId,
                 lat = lat,
                 lng = lng,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = Screen.PinDetail.route,
-            arguments = listOf(
-                navArgument("pinId") { type = NavType.LongType }
-            )
-        ) { backStackEntry ->
-            val pinId = backStackEntry.arguments?.getLong("pinId") ?: 0L
-            PinDetailScreen(
-                pinId = pinId,
-                onBack = { navController.popBackStack() },
-                onNavigateToFields = {
-                    navController.navigate(Screen.PinFields.createRoute(it))
-                }
-            )
-        }
-
-        composable(
-            route = Screen.PinFields.route,
-            arguments = listOf(navArgument("pinId") { type = NavType.LongType })
-        ) { backStackEntry ->
-            val pinId = backStackEntry.arguments?.getLong("pinId") ?: 0L
-            PinFieldsScreen(
-                pinId = pinId,
                 onBack = { navController.popBackStack() }
             )
         }

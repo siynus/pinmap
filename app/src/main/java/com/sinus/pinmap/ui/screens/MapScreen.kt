@@ -3,26 +3,16 @@ package com.sinus.pinmap.ui.screens
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
@@ -31,23 +21,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.runtime.saveable.rememberSaveable
-import coil.compose.rememberAsyncImagePainter
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.amap.api.maps.AMap
 import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.MapView
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -60,21 +43,13 @@ import com.amap.api.maps.model.Marker
 import com.amap.api.maps.model.MarkerOptions
 import com.amap.api.services.core.PoiItem
 import com.amap.api.services.poisearch.PoiResult
-import com.amap.api.services.poisearch.PoiSearch
+import com.amap.api.services.poisearch.PoiSearchV2
 import com.sinus.pinmap.data.database.PinmapDatabase
-import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.LocationManager
 import com.sinus.pinmap.ui.viewmodel.MapHolderViewModel
 import com.sinus.pinmap.ui.viewmodel.MapViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -83,6 +58,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.core.net.toUri
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import androidx.core.graphics.withClip
+import com.amap.api.services.core.PoiItemV2
+import com.amap.api.services.poisearch.PoiResultV2
+import com.sinus.pinmap.data.repository.CategoryRepository
+import com.sinus.pinmap.data.repository.FieldTemplateRepository
+import com.sinus.pinmap.data.repository.FieldValueRepository
 
 /**
  * 地图页面
@@ -100,11 +81,11 @@ fun MapScreen(
     val database = remember { PinmapDatabase.getDatabase(context) }
     val pinRepository = remember { PinRepository(database.pinStore()) }
     val categoryRepository =
-        remember { com.sinus.pinmap.data.repository.CategoryRepository(database.categoryStore()) }
+        remember { CategoryRepository(database.categoryStore()) }
     val fieldTemplateRepository =
-        remember { com.sinus.pinmap.data.repository.FieldTemplateRepository(database.fieldTemplateStore()) }
+        remember { FieldTemplateRepository(database.fieldTemplateStore()) }
     val fieldValueRepository =
-        remember { com.sinus.pinmap.data.repository.FieldValueRepository(database.fieldValueStore()) }
+        remember { FieldValueRepository(database.fieldValueStore()) }
     val viewModel: MapViewModel =
         viewModel { MapViewModel(pinRepository, fieldTemplateRepository, fieldValueRepository) }
     val mapHolder: MapHolderViewModel = viewModel()
@@ -120,7 +101,7 @@ fun MapScreen(
     val searchFocusRequester = remember { FocusRequester() }
 
     // 搜索结果
-    var poiResults by remember { mutableStateOf<List<PoiItem>>(emptyList()) }
+    var poiResults by remember { mutableStateOf<List<PoiItemV2>>(emptyList()) }
 
     val searchResults by remember(searchQuery) {
         derivedStateOf {
@@ -138,16 +119,16 @@ fun MapScreen(
     LaunchedEffect(searchQuery) {
         if (searchQuery.length >= 2) {
             try {
-                val query = com.amap.api.services.poisearch.PoiSearch.Query(searchQuery, "", null)
+                val query = PoiSearchV2.Query(searchQuery, "", null)
                 query.pageSize = 10
                 query.pageNum = 0
-                val search = PoiSearch(context, query)
-                search.setOnPoiSearchListener(object : PoiSearch.OnPoiSearchListener {
-                    override fun onPoiSearched(result: PoiResult?, code: Int) {
+                val search = PoiSearchV2(context, query)
+                search.setOnPoiSearchListener(object : PoiSearchV2.OnPoiSearchListener {
+                    override fun onPoiSearched(result: PoiResultV2?, code: Int) {
                         if (code == 1000) poiResults = result?.pois ?: emptyList()
                     }
 
-                    override fun onPoiItemSearched(item: PoiItem?, code: Int) {}
+                    override fun onPoiItemSearched(item: PoiItemV2?, code: Int) {}
                 })
                 search.searchPOIAsyn()
             } catch (e: Exception) {
@@ -183,25 +164,6 @@ fun MapScreen(
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
     }
 
-    // 图片权限请求（Android 13+）
-    var hasImagePermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    Manifest.permission.READ_MEDIA_IMAGES
-                } else {
-                    Manifest.permission.READ_EXTERNAL_STORAGE
-                }
-            ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-
-    val imagePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasImagePermission = isGranted
-    }
 
     // 在地图初始化时请求权限
     LaunchedEffect(Unit) {
@@ -258,6 +220,7 @@ fun MapScreen(
                         mapView.onResume()
                     } catch (e: Exception) {
                         // 忽略异常
+                        Log.e("MapScreen", "MapScreen: $e")
                     }
                 }
 
@@ -265,6 +228,7 @@ fun MapScreen(
                     try {
                         mapView.onPause()
                     } catch (e: Exception) {
+                        Log.e("MapScreen", "MapScreen: $e")
                     }
                 }
 
@@ -294,8 +258,7 @@ fun MapScreen(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { mapView }
-        ) { mapView ->
-        }
+        )
 
         // 设置地图事件监听
         LaunchedEffect(mapHolder.aMap) {
@@ -444,21 +407,24 @@ fun MapScreen(
                             }
                             items(searchResults) { pin ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().padding(8.dp).clickable {
-                                        scope.launch {
-                                            val aMap = mapHolder.aMap ?: return@launch
-                                            aMap.animateCamera(
-                                                CameraUpdateFactory.newLatLngZoom(
-                                                    LatLng(
-                                                        pin.latitude,
-                                                        pin.longitude
-                                                    ), 16f
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp)
+                                        .clickable {
+                                            scope.launch {
+                                                val aMap = mapHolder.aMap ?: return@launch
+                                                aMap.animateCamera(
+                                                    CameraUpdateFactory.newLatLngZoom(
+                                                        LatLng(
+                                                            pin.latitude,
+                                                            pin.longitude
+                                                        ), 16f
+                                                    )
                                                 )
-                                            )
-                                            showSearchResults = false; searchQuery =
-                                            ""; keyboardController?.hide()
+                                                showSearchResults = false; searchQuery =
+                                                ""; keyboardController?.hide()
+                                            }
                                         }
-                                    }
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
                                         Text(
@@ -488,19 +454,22 @@ fun MapScreen(
                             }
                             items(poiResults) { poi ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().padding(8.dp).clickable {
-                                        val aMap = mapHolder.aMap ?: return@clickable
-                                        aMap.animateCamera(
-                                            CameraUpdateFactory.newLatLngZoom(
-                                                LatLng(
-                                                    poi.latLonPoint.latitude,
-                                                    poi.latLonPoint.longitude
-                                                ), 16f
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp)
+                                        .clickable {
+                                            val aMap = mapHolder.aMap ?: return@clickable
+                                            aMap.animateCamera(
+                                                CameraUpdateFactory.newLatLngZoom(
+                                                    LatLng(
+                                                        poi.latLonPoint.latitude,
+                                                        poi.latLonPoint.longitude
+                                                    ), 16f
+                                                )
                                             )
-                                        )
-                                        showSearchResults = false; searchQuery =
-                                        ""; keyboardController?.hide()
-                                    }
+                                            showSearchResults = false; searchQuery =
+                                            ""; keyboardController?.hide()
+                                        }
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
                                         Text(
@@ -577,8 +546,8 @@ fun MapScreen(
                             }
                         ),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
                         )
                     )
 
@@ -595,7 +564,7 @@ fun MapScreen(
         }
 
         // 监听 pins 变化，更新地图标记
-        LaunchedEffect(pins) {
+        LaunchedEffect(pins, categories) {
             val aMap = mapHolder.aMap ?: return@LaunchedEffect
 
             aMap.clear()
@@ -648,10 +617,9 @@ fun MapScreen(
                     val scaled = avatarBitmap.scale((avatarR * 2).toInt(), (avatarR * 2).toInt())
                     val clipPath = android.graphics.Path()
                         .apply { addCircle(cx, cy, avatarR, android.graphics.Path.Direction.CW) }
-                    canvas.save()
-                    canvas.clipPath(clipPath)
-                    canvas.drawBitmap(scaled, cx - avatarR, cy - avatarR, null)
-                    canvas.restore()
+                    canvas.withClip(clipPath) {
+                        drawBitmap(scaled, cx - avatarR, cy - avatarR, null)
+                    }
                 } else {
                     paint.color = color
                     canvas.drawCircle(cx, cy, r, paint)

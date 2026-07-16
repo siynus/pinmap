@@ -1,17 +1,16 @@
 package com.sinus.pinmap
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
@@ -28,6 +27,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
                 val tabs = remember {
                     listOf(
                         TabItem("地图", Icons.Default.LocationOn, Screen.Map.route),
-                        TabItem("标记列表", Icons.Default.List, Screen.PinList.route),
+                        TabItem("标记列表", Icons.AutoMirrored.Filled.List, Screen.PinList.route),
                         TabItem("分类管理", Icons.Default.Edit, Screen.CategoryList.route),
                         TabItem("离线地图", Icons.Default.Info, Screen.OfflineMap.route, visible = false)
                     )

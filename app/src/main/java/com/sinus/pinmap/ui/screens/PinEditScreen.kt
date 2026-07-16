@@ -17,16 +17,14 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -61,7 +59,6 @@ import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
-import com.amap.api.maps.model.LatLng
 import com.amap.api.services.core.LatLonPoint
 import com.amap.api.services.geocoder.GeocodeSearch
 import com.amap.api.services.geocoder.RegeocodeQuery
@@ -71,6 +68,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,13 +103,13 @@ fun PinEditScreen(
     var playingVideo by remember { mutableStateOf<String?>(null) }
     val thumbnailCache = remember { mutableStateMapOf<String, androidx.compose.ui.graphics.ImageBitmap>() }
     var hasChanges by remember { mutableStateOf(false) }
-    var pinId by remember { mutableStateOf(pinId) }
+    var pinId by remember { mutableLongStateOf(pinId) }
     var avatarPath by remember { mutableStateOf<String?>(null) }
     var editingAvatar by remember { mutableStateOf<String?>(null) }
     var avatarDeleted by remember { mutableStateOf(false) }
     var address by remember { mutableStateOf("") }
-    var pinLat by remember { mutableStateOf(lat) }
-    var pinLng by remember { mutableStateOf(lng) }
+    var pinLat by remember { mutableDoubleStateOf(lat) }
+    var pinLng by remember { mutableDoubleStateOf(lng) }
 
     fun markDirty() { hasChanges = true }
 
@@ -229,10 +227,10 @@ fun PinEditScreen(
             Image(bitmap = cached, contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)
         } else {
             LaunchedEffect(videoUri) {
-                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                withContext(Dispatchers.IO) {
                     try {
                         val retriever = MediaMetadataRetriever()
-                        retriever.setDataSource(context, Uri.parse(videoUri))
+                        retriever.setDataSource(context, videoUri.toUri())
                         val frame = retriever.frameAtTime
                         retriever.release()
                         frame?.let { thumbnailCache[videoUri] = it.asImageBitmap() }
@@ -250,7 +248,7 @@ fun PinEditScreen(
             TopAppBar(
                 title = { Text(if (isCreate) "新建标记" else "编辑标记") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "返回") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
                 }
             )
         }
@@ -322,7 +320,7 @@ fun PinEditScreen(
                         OutlinedTextField(
                             value = selectedCategory?.name ?: "", onValueChange = {}, readOnly = true, label = { Text("分类") },
                             trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             categories.forEach { category ->
@@ -350,22 +348,22 @@ fun PinEditScreen(
                 itemsIndexed(templates) { index, template ->
                     if (index > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                        Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.height(4.dp))
                         when (template.fieldType) {
                             FieldType.TEXT -> {
                                 val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), minLines = 1)
+                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), minLines = 1, label = { Text(template.fieldName) })
                             }
                             FieldType.NUMBER -> {
                                 val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), label = { Text(template.fieldName) })
                             }
                             FieldType.DATE -> {
                                 val v = editingValues[template.id] ?: fieldValues[template.id]?.firstOrNull()?.value ?: ""
-                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("YYYY-MM-DD") })
+                                OutlinedTextField(value = v, onValueChange = { editingValues = editingValues + (template.id to it); markDirty() }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("YYYY-MM-DD") }, label = { Text(template.fieldName) })
                             }
                             FieldType.IMAGE -> {
+                                Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(4.dp))
                                 val images = getImages(template)
                                 if (images.isNotEmpty()) {
                                     val rowState = rememberLazyListState()
@@ -398,10 +396,12 @@ fun PinEditScreen(
                                 ) { Text(if (images.isEmpty()) "选择图片" else "添加图片") }
                             }
                             FieldType.VIDEO -> {
+                                Text(text = template.fieldName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(4.dp))
                                 val videos = editingImages[template.id] ?: fieldValues[template.id]?.map { it.value ?: "" } ?: emptyList()
                                 if (videos.isNotEmpty()) {
                                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        itemsIndexed(videos) { index, video ->
+                                        itemsIndexed(videos) { _, video ->
                                             Box(modifier = Modifier.size(120.dp).clickable { playingVideo = video }) {
                                                 VideoThumbnail(videoUri = video, modifier = Modifier.fillMaxSize())
                                                 Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.Center).size(48.dp))
@@ -519,7 +519,7 @@ fun PinEditScreen(
                 AndroidView(
                     factory = { ctx ->
                         VideoView(ctx).apply {
-                            setVideoURI(Uri.parse(videoUrl))
+                            setVideoURI(videoUrl.toUri())
                             setOnPreparedListener { it.isLooping = true; start() }
                         }
                     },

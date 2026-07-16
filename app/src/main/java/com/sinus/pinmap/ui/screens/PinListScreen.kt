@@ -34,8 +34,8 @@ import com.sinus.pinmap.ui.viewmodel.SortMode
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PinListScreen(
-    onPinClick: (Long) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onPinClick: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
