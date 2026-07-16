@@ -1,6 +1,6 @@
 package com.sinus.pinmap.ui.navigation
 
-sealed class Screen(val route: String) {
+sealed class Screen(val mRoute: String) {
     object Map : Screen("map")
     object PinEdit : Screen("pin_edit/{pinId}?lat={lat}&lng={lng}") {
         fun createRoute(pinId: Long?, lat: Double? = null, lng: Double? = null): String {

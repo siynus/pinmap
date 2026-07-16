@@ -19,7 +19,7 @@ import com.sinus.pinmap.ui.screens.PinListScreen
 @Composable
 fun PinmapNavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.Map.route,
+    startDestination: String = Screen.Map.mRoute,
     modifier: Modifier = Modifier,
     onOpenDrawer: () -> Unit = {}
 ) {
@@ -40,20 +40,19 @@ fun PinmapNavGraph(
             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(300))
         }
     ) {
-        composable(Screen.Map.route) {
+        composable(Screen.Map.mRoute) {
             MapScreen(
                 onNavigateToEdit = { pinId ->
                     navController.navigate(Screen.PinEdit.createRoute(pinId))
                 },
                 onNavigateToCreate = { lat, lng ->
                     navController.navigate(Screen.PinEdit.createRoute(null, lat, lng))
-                },
-                onOpenDrawer = onOpenDrawer
+                }
             )
         }
 
         composable(
-            route = Screen.PinEdit.route,
+            route = Screen.PinEdit.mRoute,
             arguments = listOf(
                 navArgument("pinId") { type = NavType.LongType; defaultValue = 0L },
                 navArgument("lat") { type = NavType.StringType; defaultValue = "0.0" },
@@ -72,7 +71,7 @@ fun PinmapNavGraph(
         }
 
         composable(
-            route = Screen.FieldTemplates.route,
+            route = Screen.FieldTemplates.mRoute,
             arguments = listOf(navArgument("categoryId") { type = NavType.LongType })
         ) { backStackEntry ->
             val categoryId = backStackEntry.arguments?.getLong("categoryId") ?: 0L
@@ -82,7 +81,7 @@ fun PinmapNavGraph(
             )
         }
 
-        composable(Screen.PinList.route) {
+        composable(Screen.PinList.mRoute) {
             PinListScreen(
                 onPinClick = { pinId ->
                     navController.navigate(Screen.PinEdit.createRoute(pinId))
@@ -90,7 +89,7 @@ fun PinmapNavGraph(
             )
         }
 
-        composable(Screen.CategoryList.route) {
+        composable(Screen.CategoryList.mRoute) {
             CategoryListScreen(
                 onNavigateToFieldTemplates = { categoryId ->
                     navController.navigate(Screen.FieldTemplates.createRoute(categoryId))
@@ -98,7 +97,7 @@ fun PinmapNavGraph(
             )
         }
 
-        composable(Screen.OfflineMap.route) {
+        composable(Screen.OfflineMap.mRoute) {
             OfflineMapScreen()
         }
     }

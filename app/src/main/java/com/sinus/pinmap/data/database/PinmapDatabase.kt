@@ -43,30 +43,30 @@ abstract class PinmapDatabase : RoomDatabase() {
 
     companion object {
         @Volatile
-        private var INSTANCE: PinmapDatabase? = null
+        private var mInstance: PinmapDatabase? = null
 
-        val MIGRATION_3_4 = Migration(3, 4) { db ->
+        val mMigration_3_4 = Migration(3, 4) { db ->
             db.execSQL("ALTER TABLE field_templates ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
         }
 
-        val MIGRATION_4_5 = Migration(4, 5) { db ->
+        val mMigration_4_5 = Migration(4, 5) { db ->
             db.execSQL("ALTER TABLE pins ADD COLUMN avatarPath TEXT")
         }
 
-        val MIGRATION_5_6 = Migration(5, 6) { db ->
+        val mMigration_5_6 = Migration(5, 6) { db ->
             db.execSQL("ALTER TABLE pins ADD COLUMN address TEXT")
         }
 
         fun getDatabase(context: Context): PinmapDatabase {
-            return INSTANCE ?: synchronized(this) {
+            return mInstance ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     PinmapDatabase::class.java,
                     "pinmap_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(mMigration_3_4, mMigration_4_5, mMigration_5_6)
                     .build()
-                INSTANCE = instance
+                mInstance = instance
                 instance
             }
         }

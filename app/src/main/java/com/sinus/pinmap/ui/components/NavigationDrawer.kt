@@ -29,26 +29,26 @@ fun NavigationDrawer(
 
         NavigationDrawerItem(
             label = { Text("地图") },
-            selected = currentRoute == Screen.Map.route,
-            onClick = { onNavigate(Screen.Map.route) }
+            selected = currentRoute == Screen.Map.mRoute,
+            onClick = { onNavigate(Screen.Map.mRoute) }
         )
 
         NavigationDrawerItem(
             label = { Text("标记列表") },
-            selected = currentRoute == Screen.PinList.route,
-            onClick = { onNavigate(Screen.PinList.route) }
+            selected = currentRoute == Screen.PinList.mRoute,
+            onClick = { onNavigate(Screen.PinList.mRoute) }
         )
 
         NavigationDrawerItem(
             label = { Text("分类管理") },
-            selected = currentRoute == Screen.CategoryList.route,
-            onClick = { onNavigate(Screen.CategoryList.route) }
+            selected = currentRoute == Screen.CategoryList.mRoute,
+            onClick = { onNavigate(Screen.CategoryList.mRoute) }
         )
 
         NavigationDrawerItem(
             label = { Text("离线地图") },
-            selected = currentRoute == Screen.OfflineMap.route,
-            onClick = { onNavigate(Screen.OfflineMap.route) }
+            selected = currentRoute == Screen.OfflineMap.mRoute,
+            onClick = { onNavigate(Screen.OfflineMap.mRoute) }
         )
     }
 }

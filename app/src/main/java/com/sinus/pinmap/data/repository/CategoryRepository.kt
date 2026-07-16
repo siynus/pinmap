@@ -6,18 +6,18 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 分类数据仓库
  */
-class CategoryRepository(private val categoryStore: CategoryStore) {
-    fun getAllCategories(): Flow<List<Category>> = categoryStore.getAllCategories()
+class CategoryRepository(private val mCategoryStore: CategoryStore) {
+    fun getAllCategories(): Flow<List<Category>> = mCategoryStore.getAllCategories()
 
-    suspend fun getCategoryById(categoryId: Long): Category? = categoryStore.getCategoryById(categoryId)
+    suspend fun getCategoryById(categoryId: Long): Category? = mCategoryStore.getCategoryById(categoryId)
 
-    suspend fun insertCategory(category: Category): Long = categoryStore.insertCategory(category)
+    suspend fun insertCategory(category: Category): Long = mCategoryStore.insertCategory(category)
 
-    suspend fun updateCategory(category: Category) = categoryStore.updateCategory(category)
+    suspend fun updateCategory(category: Category) = mCategoryStore.updateCategory(category)
 
-    suspend fun deleteCategory(category: Category) = categoryStore.deleteCategory(category)
+    suspend fun deleteCategory(category: Category) = mCategoryStore.deleteCategory(category)
 
-    suspend fun deleteCategoryById(categoryId: Long) = categoryStore.deleteCategoryById(categoryId)
+    suspend fun deleteCategoryById(categoryId: Long) = mCategoryStore.deleteCategoryById(categoryId)
 
-    suspend fun getCategoryCount(): Int = categoryStore.getCategoryCount()
+    suspend fun getCategoryCount(): Int = mCategoryStore.getCategoryCount()
 }

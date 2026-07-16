@@ -27,7 +27,7 @@ fun OfflineMapScreen(modifier: Modifier = Modifier) {
 
     var cities by remember { mutableStateOf<List<OfflineMapCity>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
-    val states = offlineManager.downloadStates // read from observable state map
+    val states = offlineManager.mDownloadStates // read from observable state map
 
     LaunchedEffect(Unit) {
         cities = offlineManager.getAllCities()

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class CategoryViewModel(
-    private val categoryRepository: CategoryRepository
+    private val mCategoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
@@ -22,7 +22,7 @@ class CategoryViewModel(
 
     private fun loadCategories() {
         viewModelScope.launch {
-            categoryRepository.getAllCategories().collect { categoryList ->
+            mCategoryRepository.getAllCategories().collect { categoryList ->
                 _categories.value = categoryList
             }
         }
@@ -34,19 +34,19 @@ class CategoryViewModel(
                 name = name,
                 color = color
             )
-            categoryRepository.insertCategory(category)
+            mCategoryRepository.insertCategory(category)
         }
     }
 
     fun deleteCategory(category: Category) {
         viewModelScope.launch {
-            categoryRepository.deleteCategory(category)
+            mCategoryRepository.deleteCategory(category)
         }
     }
 
     fun updateCategory(category: Category) {
         viewModelScope.launch {
-            categoryRepository.updateCategory(category)
+            mCategoryRepository.updateCategory(category)
         }
     }
 }

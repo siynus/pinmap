@@ -6,38 +6,38 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 字段值数据仓库
  */
-class FieldValueRepository(private val fieldValueStore: FieldValueStore) {
-    fun getAllFieldValues(): Flow<List<FieldValue>> = fieldValueStore.getAllFieldValues()
+class FieldValueRepository(private val mFieldValueStore: FieldValueStore) {
+    fun getAllFieldValues(): Flow<List<FieldValue>> = mFieldValueStore.getAllFieldValues()
 
-    suspend fun getFieldValueById(id: Long): FieldValue? = fieldValueStore.getFieldValueById(id)
+    suspend fun getFieldValueById(id: Long): FieldValue? = mFieldValueStore.getFieldValueById(id)
 
     fun getFieldValuesByPin(pinId: Long): Flow<List<FieldValue>> =
-        fieldValueStore.getFieldValuesByPin(pinId)
+        mFieldValueStore.getFieldValuesByPin(pinId)
 
     suspend fun getFieldValue(pinId: Long, fieldTemplateId: Long): FieldValue? =
-        fieldValueStore.getFieldValue(pinId, fieldTemplateId)
+        mFieldValueStore.getFieldValue(pinId, fieldTemplateId)
 
     fun getFieldValuesByTemplate(fieldTemplateId: Long): Flow<List<FieldValue>> =
-        fieldValueStore.getFieldValuesByTemplate(fieldTemplateId)
+        mFieldValueStore.getFieldValuesByTemplate(fieldTemplateId)
 
     suspend fun insertFieldValue(fieldValue: FieldValue): Long =
-        fieldValueStore.insertFieldValue(fieldValue)
+        mFieldValueStore.insertFieldValue(fieldValue)
 
     suspend fun updateFieldValue(fieldValue: FieldValue) =
-        fieldValueStore.updateFieldValue(fieldValue)
+        mFieldValueStore.updateFieldValue(fieldValue)
 
     suspend fun deleteFieldValue(fieldValue: FieldValue) =
-        fieldValueStore.deleteFieldValue(fieldValue)
+        mFieldValueStore.deleteFieldValue(fieldValue)
 
     suspend fun deleteFieldValueById(id: Long) =
-        fieldValueStore.deleteFieldValueById(id)
+        mFieldValueStore.deleteFieldValueById(id)
 
     suspend fun deleteFieldValueByPinAndTemplate(pinId: Long, fieldTemplateId: Long) =
-        fieldValueStore.deleteFieldValueByPinAndTemplate(pinId, fieldTemplateId)
+        mFieldValueStore.deleteFieldValueByPinAndTemplate(pinId, fieldTemplateId)
 
     suspend fun deleteFieldValuesByPin(pinId: Long) =
-        fieldValueStore.deleteFieldValuesByPin(pinId)
+        mFieldValueStore.deleteFieldValuesByPin(pinId)
 
     suspend fun deleteFieldValuesByTemplate(fieldTemplateId: Long) =
-        fieldValueStore.deleteFieldValuesByTemplate(fieldTemplateId)
+        mFieldValueStore.deleteFieldValuesByTemplate(fieldTemplateId)
 }

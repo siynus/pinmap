@@ -20,7 +20,7 @@ import kotlin.math.sqrt
 /**
  * 位置管理器
  */
-class LocationManager(private val context: Context) {
+class LocationManager(private val mContext: Context) {
 
     companion object {
         private const val PREFS_NAME = "location_prefs"
@@ -29,21 +29,20 @@ class LocationManager(private val context: Context) {
         private const val KEY_LAST_ZOOM = "last_zoom"
 
         // 默认位置：中国中心
-        val DEFAULT_LOCATION = LatLng(35.8617, 104.1954)
+        val mDefaultLocation = LatLng(35.8617, 104.1954)
         const val DEFAULT_ZOOM = 4f
 
         // 隐私合规状态
-        private var privacyAgreed = false
+        private var mPrivacyAgreed = false
     }
 
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val mPrefs = mContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     init {
-        // 设置隐私合规（必须在使用 SDK 前调用）
-        if (!privacyAgreed) {
-            AMapLocationClient.updatePrivacyShow(context, true, true)
-            AMapLocationClient.updatePrivacyAgree(context, true)
-            privacyAgreed = true
+        if (!mPrivacyAgreed) {
+            AMapLocationClient.updatePrivacyShow(mContext, true, true)
+            AMapLocationClient.updatePrivacyAgree(mContext, true)
+            mPrivacyAgreed = true
         }
     }
 
@@ -51,7 +50,7 @@ class LocationManager(private val context: Context) {
      * 保存位置
      */
     fun saveLastLocation(lat: Double, lng: Double, zoom: Float) {
-        prefs.edit().apply {
+        mPrefs.edit().apply {
             putFloat(KEY_LAST_LATITUDE, lat.toFloat())
             putFloat(KEY_LAST_LONGITUDE, lng.toFloat())
             putFloat(KEY_LAST_ZOOM, zoom)
@@ -63,9 +62,9 @@ class LocationManager(private val context: Context) {
      * 获取上次保存的位置
      */
     fun getLastLocation(): Pair<LatLng, Float> {
-        val lat = prefs.getFloat(KEY_LAST_LATITUDE, DEFAULT_LOCATION.latitude.toFloat()).toDouble()
-        val lng = prefs.getFloat(KEY_LAST_LONGITUDE, DEFAULT_LOCATION.longitude.toFloat()).toDouble()
-        val zoom = prefs.getFloat(KEY_LAST_ZOOM, DEFAULT_ZOOM)
+        val lat = mPrefs.getFloat(KEY_LAST_LATITUDE, mDefaultLocation.latitude.toFloat()).toDouble()
+        val lng = mPrefs.getFloat(KEY_LAST_LONGITUDE, mDefaultLocation.longitude.toFloat()).toDouble()
+        val zoom = mPrefs.getFloat(KEY_LAST_ZOOM, DEFAULT_ZOOM)
         return LatLng(lat, lng) to zoom
     }
 
@@ -74,10 +73,10 @@ class LocationManager(private val context: Context) {
      */
     fun hasLocationPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
-            context,
+            mContext,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
-            context,
+            mContext,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
     }
@@ -91,7 +90,7 @@ class LocationManager(private val context: Context) {
             return@suspendCancellableCoroutine
         }
 
-        val locationClient = AMapLocationClient(context.applicationContext).apply {
+        val locationClient = AMapLocationClient(mContext.applicationContext).apply {
             setLocationOption(
                 AMapLocationClientOption().apply {
                     locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy
@@ -139,7 +138,7 @@ class LocationManager(private val context: Context) {
             return@suspendCancellableCoroutine
         }
 
-        val locationClient = AMapLocationClient(context.applicationContext).apply {
+        val locationClient = AMapLocationClient(mContext.applicationContext).apply {
             setLocationOption(
                 AMapLocationClientOption().apply {
                     locationMode = AMapLocationClientOption.AMapLocationMode.Hight_Accuracy

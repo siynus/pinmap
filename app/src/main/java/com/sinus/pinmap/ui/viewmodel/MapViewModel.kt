@@ -15,9 +15,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class MapViewModel(
-    private val pinRepository: PinRepository,
-    private val fieldTemplateRepository: FieldTemplateRepository,
-    private val fieldValueRepository: FieldValueRepository
+    private val mPinRepository: PinRepository,
+    private val mFieldTemplateRepository: FieldTemplateRepository,
+    private val mFieldValueRepository: FieldValueRepository
 ) : ViewModel() {
 
     private val _pins = MutableStateFlow<List<Pin>>(emptyList())
@@ -32,7 +32,7 @@ class MapViewModel(
 
     private fun loadPins() {
         viewModelScope.launch {
-            pinRepository.getAllPins().collect { pinList ->
+            mPinRepository.getAllPins().collect { pinList ->
                 _pins.value = pinList
             }
         }
@@ -47,7 +47,7 @@ class MapViewModel(
     }
 
     suspend fun getPinById(pinId: Long): Pin? {
-        return pinRepository.getPinById(pinId)
+        return mPinRepository.getPinById(pinId)
     }
 
     fun createPin(
@@ -64,18 +64,18 @@ class MapViewModel(
                 title = title,
                 categoryId = categoryId
             )
-            val pinId = pinRepository.insertPin(pin)
+            val pinId = mPinRepository.insertPin(pin)
 
             fields.forEach { fieldData ->
-                val order = fieldTemplateRepository.nextSortOrder(categoryId)
+                val order = mFieldTemplateRepository.nextSortOrder(categoryId)
                 val template = FieldTemplate(
                     categoryId = categoryId,
                     fieldName = fieldData.name,
                     fieldType = fieldData.type,
                     sortOrder = order
                 )
-                val templateId = fieldTemplateRepository.insertFieldTemplate(template)
-                fieldValueRepository.insertFieldValue(
+                val templateId = mFieldTemplateRepository.insertFieldTemplate(template)
+                mFieldValueRepository.insertFieldValue(
                     FieldValue(pinId = pinId, fieldTemplateId = templateId, value = fieldData.value)
                 )
             }
@@ -84,13 +84,13 @@ class MapViewModel(
 
     fun updatePin(pin: Pin) {
         viewModelScope.launch {
-            pinRepository.updatePin(pin)
+            mPinRepository.updatePin(pin)
         }
     }
 
     fun deletePin(pin: Pin) {
         viewModelScope.launch {
-            pinRepository.deletePin(pin)
+            mPinRepository.deletePin(pin)
             clearSelectedPin()
         }
     }

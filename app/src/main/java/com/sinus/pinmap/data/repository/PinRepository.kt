@@ -6,20 +6,20 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 标记数据仓库
  */
-class PinRepository(private val pinStore: PinStore) {
-    fun getAllPins(): Flow<List<Pin>> = pinStore.getAllPins()
+class PinRepository(private val mPinStore: PinStore) {
+    fun getAllPins(): Flow<List<Pin>> = mPinStore.getAllPins()
 
-    suspend fun getPinById(pinId: Long): Pin? = pinStore.getPinById(pinId)
+    suspend fun getPinById(pinId: Long): Pin? = mPinStore.getPinById(pinId)
 
-    fun getPinsByCategory(categoryId: Long): Flow<List<Pin>> = pinStore.getPinsByCategory(categoryId)
+    fun getPinsByCategory(categoryId: Long): Flow<List<Pin>> = mPinStore.getPinsByCategory(categoryId)
 
-    fun searchPins(query: String): Flow<List<Pin>> = pinStore.searchPins(query)
+    fun searchPins(query: String): Flow<List<Pin>> = mPinStore.searchPins(query)
 
-    suspend fun insertPin(pin: Pin): Long = pinStore.insertPin(pin)
+    suspend fun insertPin(pin: Pin): Long = mPinStore.insertPin(pin)
 
-    suspend fun updatePin(pin: Pin) = pinStore.updatePin(pin)
+    suspend fun updatePin(pin: Pin) = mPinStore.updatePin(pin)
 
-    suspend fun deletePin(pin: Pin) = pinStore.deletePin(pin)
+    suspend fun deletePin(pin: Pin) = mPinStore.deletePin(pin)
 
-    suspend fun deletePinById(pinId: Long) = pinStore.deletePinById(pinId)
+    suspend fun deletePinById(pinId: Long) = mPinStore.deletePinById(pinId)
 }

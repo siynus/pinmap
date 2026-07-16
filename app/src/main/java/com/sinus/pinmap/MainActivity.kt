@@ -42,10 +42,10 @@ class MainActivity : ComponentActivity() {
 
                 val tabs = remember {
                     listOf(
-                        TabItem("地图", Icons.Default.LocationOn, Screen.Map.route),
-                        TabItem("标记列表", Icons.AutoMirrored.Filled.List, Screen.PinList.route),
-                        TabItem("分类管理", Icons.Default.Edit, Screen.CategoryList.route),
-                        TabItem("离线地图", Icons.Default.Info, Screen.OfflineMap.route, visible = false)
+                        TabItem("地图", Icons.Default.LocationOn, Screen.Map.mRoute),
+                        TabItem("标记列表", Icons.AutoMirrored.Filled.List, Screen.PinList.mRoute),
+                        TabItem("分类管理", Icons.Default.Edit, Screen.CategoryList.mRoute),
+                        TabItem("离线地图", Icons.Default.Info, Screen.OfflineMap.mRoute, visible = false)
                     )
                 }
 
@@ -84,9 +84,9 @@ class MainActivity : ComponentActivity() {
                                 title = {
                                     Text(
                                         when (currentRoute) {
-                                            Screen.Map.route -> "地图"
-                                            Screen.PinList.route -> "标记列表"
-                                            Screen.CategoryList.route -> "分类管理"
+                                            Screen.Map.mRoute -> "地图"
+                                            Screen.PinList.mRoute -> "标记列表"
+                                            Screen.CategoryList.mRoute -> "分类管理"
                                             else -> "Pinmap"
                                         }
                                     )

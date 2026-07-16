@@ -43,8 +43,6 @@ import com.amap.api.maps.model.BitmapDescriptorFactory
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.Marker
 import com.amap.api.maps.model.MarkerOptions
-import com.amap.api.services.core.PoiItem
-import com.amap.api.services.poisearch.PoiResult
 import com.amap.api.services.poisearch.PoiSearchV2
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.repository.PinRepository
@@ -76,8 +74,7 @@ import com.sinus.pinmap.data.repository.FieldValueRepository
 fun MapScreen(
     modifier: Modifier = Modifier,
     onNavigateToEdit: (Long) -> Unit = {},
-    onNavigateToCreate: (Double, Double) -> Unit = { _, _ -> },
-    onOpenDrawer: () -> Unit = {}
+    onNavigateToCreate: (Double, Double) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
@@ -188,7 +185,7 @@ fun MapScreen(
 
     // 初始化地图位置
     LaunchedEffect(mapView) {
-        if (!mapHolder.isInitialized) {
+        if (!mapHolder.mIsInitialized) {
             val aMap = mapView.map ?: return@LaunchedEffect
             mapHolder.setAMap(aMap)
 

@@ -15,8 +15,8 @@ enum class SortMode {
 }
 
 class PinListViewModel(
-    private val pinRepository: PinRepository,
-    private val categoryRepository: CategoryRepository
+    private val mPinRepository: PinRepository,
+    private val mCategoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val _pins = MutableStateFlow<List<Pin>>(emptyList())
@@ -84,7 +84,7 @@ class PinListViewModel(
 
     private fun loadPins() {
         viewModelScope.launch {
-            pinRepository.getAllPins().collect { pinList ->
+            mPinRepository.getAllPins().collect { pinList ->
                 _pins.value = pinList
             }
         }
@@ -92,7 +92,7 @@ class PinListViewModel(
 
     private fun loadCategories() {
         viewModelScope.launch {
-            categoryRepository.getAllCategories().collect { categoryList ->
+            mCategoryRepository.getAllCategories().collect { categoryList ->
                 _categories.value = categoryList
             }
         }
@@ -117,11 +117,11 @@ class PinListViewModel(
 
     fun deletePin(pin: Pin) {
         viewModelScope.launch {
-            pinRepository.deletePin(pin)
+            mPinRepository.deletePin(pin)
         }
     }
 
     suspend fun getPinById(pinId: Long): Pin? {
-        return pinRepository.getPinById(pinId)
+        return mPinRepository.getPinById(pinId)
     }
 }

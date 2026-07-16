@@ -6,28 +6,28 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 字段模板数据仓库
  */
-class FieldTemplateRepository(private val fieldTemplateStore: FieldTemplateStore) {
-    fun getAllFieldTemplates(): Flow<List<FieldTemplate>> = fieldTemplateStore.getAllFieldTemplates()
+class FieldTemplateRepository(private val mFieldTemplateStore: FieldTemplateStore) {
+    fun getAllFieldTemplates(): Flow<List<FieldTemplate>> = mFieldTemplateStore.getAllFieldTemplates()
 
-    suspend fun getFieldTemplateById(id: Long): FieldTemplate? = fieldTemplateStore.getFieldTemplateById(id)
+    suspend fun getFieldTemplateById(id: Long): FieldTemplate? = mFieldTemplateStore.getFieldTemplateById(id)
 
     fun getFieldTemplatesByCategory(categoryId: Long): Flow<List<FieldTemplate>> =
-        fieldTemplateStore.getFieldTemplatesByCategory(categoryId)
+        mFieldTemplateStore.getFieldTemplatesByCategory(categoryId)
 
-    suspend fun nextSortOrder(categoryId: Long): Int = fieldTemplateStore.nextSortOrder(categoryId)
+    suspend fun nextSortOrder(categoryId: Long): Int = mFieldTemplateStore.nextSortOrder(categoryId)
 
     suspend fun insertFieldTemplate(fieldTemplate: FieldTemplate): Long =
-        fieldTemplateStore.insertFieldTemplate(fieldTemplate)
+        mFieldTemplateStore.insertFieldTemplate(fieldTemplate)
 
     suspend fun updateFieldTemplate(fieldTemplate: FieldTemplate) =
-        fieldTemplateStore.updateFieldTemplate(fieldTemplate)
+        mFieldTemplateStore.updateFieldTemplate(fieldTemplate)
 
     suspend fun deleteFieldTemplate(fieldTemplate: FieldTemplate) =
-        fieldTemplateStore.deleteFieldTemplate(fieldTemplate)
+        mFieldTemplateStore.deleteFieldTemplate(fieldTemplate)
 
     suspend fun deleteFieldTemplateById(id: Long) =
-        fieldTemplateStore.deleteFieldTemplateById(id)
+        mFieldTemplateStore.deleteFieldTemplateById(id)
 
     suspend fun deleteFieldTemplatesByCategory(categoryId: Long) =
-        fieldTemplateStore.deleteFieldTemplatesByCategory(categoryId)
+        mFieldTemplateStore.deleteFieldTemplatesByCategory(categoryId)
 }
