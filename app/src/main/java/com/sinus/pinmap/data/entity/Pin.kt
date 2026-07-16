@@ -15,6 +15,7 @@ data class Pin(
     val title: String,
     val description: String? = null,
     val categoryId: Long? = null,
+    val avatarPath: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

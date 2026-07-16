@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -98,6 +99,9 @@ fun PinEditScreen(
     val thumbnailCache = remember { mutableStateMapOf<String, androidx.compose.ui.graphics.ImageBitmap>() }
     var hasChanges by remember { mutableStateOf(false) }
     var pinId by remember { mutableStateOf(pinId) }
+    var avatarPath by remember { mutableStateOf<String?>(null) }
+    var editingAvatar by remember { mutableStateOf<String?>(null) }
+    var avatarDeleted by remember { mutableStateOf(false) }
 
     fun markDirty() { hasChanges = true }
 
@@ -107,6 +111,7 @@ fun PinEditScreen(
             pinRepository.getPinById(pinId)?.let { pin ->
                 title = pin.title
                 selectedCategory = categories.find { it.id == pin.categoryId }
+                avatarPath = pin.avatarPath
                 selectedCategory?.let { cat ->
                     templates = templateRepo.getFieldTemplatesByCategory(cat.id).first()
                 }
@@ -156,18 +161,23 @@ fun PinEditScreen(
                                 if (it == "*" || it.length > 4) null else ".$it"
                             } ?: ".jpg"
                         } catch (_: Exception) { ".jpg" }
+                        val dirName = if (tid == -1L) "avatars" else "images"
                         val fileName = "IMG_${timeStamp}$ext"
-                        val imagesDir = File(context.filesDir, "images")
-                        if (!imagesDir.exists()) imagesDir.mkdirs()
-                        val imageFile = File(imagesDir, fileName)
+                        val destDir = File(context.filesDir, dirName)
+                        if (!destDir.exists()) destDir.mkdirs()
+                        val destFile = File(destDir, fileName)
                         context.contentResolver.openInputStream(selectedUri)?.use { input ->
-                            FileOutputStream(imageFile).use { output -> input.copyTo(output) }
+                            FileOutputStream(destFile).use { output -> input.copyTo(output) }
                         }
-                        val uriStr = Uri.fromFile(imageFile).toString()
-                        val existing = fieldValues[tid]?.map { it.value ?: "" } ?: emptyList()
-                        val current = editingImages[tid] ?: existing
-                        if (uriStr !in current) {
-                            editingImages = editingImages + (tid to (current + uriStr)); markDirty()
+                        val uriStr = Uri.fromFile(destFile).toString()
+                        if (tid == -1L) {
+                            editingAvatar = uriStr; markDirty()
+                        } else {
+                            val existing = fieldValues[tid]?.map { it.value ?: "" } ?: emptyList()
+                            val current = editingImages[tid] ?: existing
+                            if (uriStr !in current) {
+                                editingImages = editingImages + (tid to (current + uriStr)); markDirty()
+                            }
                         }
                     } catch (e: Exception) { e.printStackTrace() }
                 }
@@ -215,11 +225,31 @@ fun PinEditScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
             LazyColumn(
                 modifier = Modifier.weight(1f).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                item {
+                    val avatarUri = editingAvatar ?: avatarPath
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(modifier = Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable {
+                            pendingImageTemplateId = -1L; imagePickerLauncher.launch("image/*")
+                        }, contentAlignment = Alignment.Center) {
+                            if (avatarUri != null) {
+                                Image(painter = coil.compose.rememberAsyncImagePainter(avatarUri), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                            } else {
+                                Icon(Icons.Default.Person, contentDescription = "设置头像", modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        if (avatarUri != null) {
+                            TextButton(onClick = { avatarDeleted = true; markDirty() }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("删除头像") }
+                        } else {
+                            Text("点击设置头像", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
                 item {
                     OutlinedTextField(value = title, onValueChange = { title = it; markDirty() }, label = { Text("标题") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
@@ -347,13 +377,23 @@ fun PinEditScreen(
                             val categoryId = selectedCategory?.id ?: return@launch
                             val id = when {
                                 pinId == 0L -> {
-                                    val newId = pinRepository.insertPin(Pin(latitude = lat, longitude = lng, title = title, categoryId = categoryId))
+                            val finalAvatar = when {
+                                avatarDeleted -> null
+                                editingAvatar != null -> editingAvatar
+                                else -> avatarPath
+                            }
+                            val newId = pinRepository.insertPin(Pin(latitude = lat, longitude = lng, title = title, categoryId = categoryId, avatarPath = finalAvatar))
                                     pinId = newId
                                     newId
                                 }
                                 else -> {
                                     pinRepository.getPinById(pinId)?.let { pin ->
-                                        pinRepository.updatePin(pin.copy(title = title, categoryId = categoryId))
+                                        val finalAvatar = when {
+                                            avatarDeleted -> null
+                                            editingAvatar != null -> editingAvatar
+                                            else -> avatarPath
+                                        }
+                                        pinRepository.updatePin(pin.copy(title = title, categoryId = categoryId, avatarPath = finalAvatar))
                                     }
                                     pinId
                                 }

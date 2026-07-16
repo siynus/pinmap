@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -46,9 +47,20 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.amap.api.maps.AMap
 import com.amap.api.maps.CameraUpdateFactory
 import com.amap.api.maps.MapView
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.util.Log
+import com.amap.api.maps.model.BitmapDescriptorFactory
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.Marker
 import com.amap.api.maps.model.MarkerOptions
+import com.amap.api.services.core.PoiItem
+import com.amap.api.services.poisearch.PoiResult
+import com.amap.api.services.poisearch.PoiSearch
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.PinRepository
@@ -68,12 +80,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.core.net.toUri
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 
 /**
  * 地图页面
  */
 @OptIn(ExperimentalMaterial3Api::class)
-@SuppressLint("ClickableViewAccessibility")
+@SuppressLint("ClickableViewAccessibility", "LocalContextResourcesRead")
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
@@ -84,10 +99,14 @@ fun MapScreen(
     val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
     val pinRepository = remember { PinRepository(database.pinStore()) }
-    val categoryRepository = remember { com.sinus.pinmap.data.repository.CategoryRepository(database.categoryStore()) }
-    val fieldTemplateRepository = remember { com.sinus.pinmap.data.repository.FieldTemplateRepository(database.fieldTemplateStore()) }
-    val fieldValueRepository = remember { com.sinus.pinmap.data.repository.FieldValueRepository(database.fieldValueStore()) }
-    val viewModel: MapViewModel = viewModel { MapViewModel(pinRepository, fieldTemplateRepository, fieldValueRepository) }
+    val categoryRepository =
+        remember { com.sinus.pinmap.data.repository.CategoryRepository(database.categoryStore()) }
+    val fieldTemplateRepository =
+        remember { com.sinus.pinmap.data.repository.FieldTemplateRepository(database.fieldTemplateStore()) }
+    val fieldValueRepository =
+        remember { com.sinus.pinmap.data.repository.FieldValueRepository(database.fieldValueStore()) }
+    val viewModel: MapViewModel =
+        viewModel { MapViewModel(pinRepository, fieldTemplateRepository, fieldValueRepository) }
     val mapHolder: MapHolderViewModel = viewModel()
 
     val pins by viewModel.pins.collectAsState()
@@ -95,12 +114,14 @@ fun MapScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var showSearchResults by remember { mutableStateOf(false) }
-    
+
     // 键盘控制器和焦点请求器
     val keyboardController = LocalSoftwareKeyboardController.current
     val searchFocusRequester = remember { FocusRequester() }
 
     // 搜索结果
+    var poiResults by remember { mutableStateOf<List<PoiItem>>(emptyList()) }
+
     val searchResults by remember(searchQuery) {
         derivedStateOf {
             if (searchQuery.isBlank()) {
@@ -108,9 +129,32 @@ fun MapScreen(
             } else {
                 pins.filter {
                     it.title.contains(searchQuery, ignoreCase = true) ||
-                    (it.description?.contains(searchQuery, ignoreCase = true) == true)
+                            (it.description?.contains(searchQuery, ignoreCase = true) == true)
                 }
             }
+        }
+    }
+
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.length >= 2) {
+            try {
+                val query = com.amap.api.services.poisearch.PoiSearch.Query(searchQuery, "", null)
+                query.pageSize = 10
+                query.pageNum = 0
+                val search = PoiSearch(context, query)
+                search.setOnPoiSearchListener(object : PoiSearch.OnPoiSearchListener {
+                    override fun onPoiSearched(result: PoiResult?, code: Int) {
+                        if (code == 1000) poiResults = result?.pois ?: emptyList()
+                    }
+
+                    override fun onPoiItemSearched(item: PoiItem?, code: Int) {}
+                })
+                search.searchPOIAsyn()
+            } catch (e: Exception) {
+                Log.e("MapScreen", "POI search error", e)
+            }
+        } else {
+            poiResults = emptyList()
         }
     }
 
@@ -120,7 +164,7 @@ fun MapScreen(
     // 记住 MapView 实例
     val mapView = mapHolder.init(context)
 
-var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
+    var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
     // 位置权限请求
     var hasLocationPermission by remember {
@@ -216,11 +260,14 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                         // 忽略异常
                     }
                 }
+
                 Lifecycle.Event.ON_PAUSE -> {
                     try {
                         mapView.onPause()
-                    } catch (e: Exception) { }
+                    } catch (e: Exception) {
+                    }
                 }
+
                 else -> {}
             }
         }
@@ -231,6 +278,17 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
     }
 
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    val navigationBarsInsets = WindowInsets.navigationBars
+    var searchBottom by remember { mutableStateOf(96.dp) }
+    LaunchedEffect(imeInsets) {
+        snapshotFlow { imeInsets.getBottom(density) }
+            .collect { imePx ->
+                searchBottom = if (imePx > 0) with(density) { imePx.toDp() } + 16.dp else 112.dp
+                Log.d("MapScreen", "imePx=$imePx searchBottom=$searchBottom navBarDp=${with(density) { navigationBarsInsets.getBottom(density).toDp() }}")
+            }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
@@ -270,7 +328,12 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                     val pos = marker.position
                     scope.launch {
                         pinRepository.getPinById(id)?.let { pin ->
-                            pinRepository.updatePin(pin.copy(latitude = pos.latitude, longitude = pos.longitude))
+                            pinRepository.updatePin(
+                                pin.copy(
+                                    latitude = pos.latitude,
+                                    longitude = pos.longitude
+                                )
+                            )
                         }
                     }
                 }
@@ -282,7 +345,11 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                 override fun onCameraChangeFinish(cameraPosition: com.amap.api.maps.model.CameraPosition?) {
                     cameraPosition?.let {
                         scope.launch {
-                            locationManager.saveLastLocation(it.target.latitude, it.target.longitude, it.zoom)
+                            locationManager.saveLastLocation(
+                                it.target.latitude,
+                                it.target.longitude,
+                                it.zoom
+                            )
                         }
                     }
                 }
@@ -319,20 +386,20 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
                             val location = locationResult.getOrNull()
                             if (location != null) {
                                 val aMap = mapHolder.aMap ?: return@launch
-                                
+
                                 // 移除旧的当前位置标记
                                 myLocationMarker?.remove()
-                                
+
                                 // 添加新的当前位置标记
                                 val markerOptions = MarkerOptions()
                                     .position(location)
                                     .title("当前位置")
                                     .draggable(false)
                                     .snippet("你在当前位置")
-                                
+
                                 val marker = aMap.addMarker(markerOptions)
                                 myLocationMarker = marker
-                                
+
                                 // 移动地图到当前位置
                                 aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15f))
                             }
@@ -348,150 +415,264 @@ var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
             Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
         }
 
-        // 搜索栏 - 放在底部
-        Card(
+        // 底部面板：搜索栏 + 搜索结果
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
-                .imePadding()
-                .align(Alignment.BottomCenter),
-            shape = RoundedCornerShape(28.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+                .align(Alignment.BottomCenter)
+                .padding(start = 16.dp, end = 16.dp, bottom = searchBottom)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { newValue: String ->
-                        searchQuery = newValue
-                        showSearchResults = newValue.isNotBlank()
-                    },
-                    placeholder = { Text("搜索标记...") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .focusRequester(searchFocusRequester),
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                        onSearch = {
-                            if (searchResults.isNotEmpty()) {
-                                // 点击搜索按钮时，跳转到第一个搜索结果
-                                scope.launch {
-                                    val pin = searchResults.first()
-                                    val aMap = mapHolder.aMap ?: return@launch
-                                    val latLng = LatLng(pin.latitude, pin.longitude)
-                                    aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
-                                    showSearchResults = false
-                                    searchQuery = ""
-                                    keyboardController?.hide()
+            // 搜索结果列表
+            if (showSearchResults && (searchResults.isNotEmpty() || poiResults.isNotEmpty())) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                    ) {
+                        if (searchResults.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "标记",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            items(searchResults) { pin ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(8.dp).clickable {
+                                        scope.launch {
+                                            val aMap = mapHolder.aMap ?: return@launch
+                                            aMap.animateCamera(
+                                                CameraUpdateFactory.newLatLngZoom(
+                                                    LatLng(
+                                                        pin.latitude,
+                                                        pin.longitude
+                                                    ), 16f
+                                                )
+                                            )
+                                            showSearchResults = false; searchQuery =
+                                            ""; keyboardController?.hide()
+                                        }
+                                    }
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = pin.title,
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
+                                        pin.description?.let {
+                                            Text(
+                                                text = it,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-                        unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
-                    )
-                )
-
-                if (searchQuery.isNotBlank()) {
-                    IconButton(onClick = {
-                        searchQuery = ""
-                        showSearchResults = false
-                    }) {
-                        Icon(Icons.Default.Close, contentDescription = "清除搜索")
+                        if (poiResults.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "地址",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            items(poiResults) { poi ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(8.dp).clickable {
+                                        val aMap = mapHolder.aMap ?: return@clickable
+                                        aMap.animateCamera(
+                                            CameraUpdateFactory.newLatLngZoom(
+                                                LatLng(
+                                                    poi.latLonPoint.latitude,
+                                                    poi.latLonPoint.longitude
+                                                ), 16f
+                                            )
+                                        )
+                                        showSearchResults = false; searchQuery =
+                                        ""; keyboardController?.hide()
+                                    }
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = poi.title,
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
+                                        Text(
+                                            text = poi.snippet,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-        }
 
-        // 搜索结果列表 - 显示在搜索框上方
-        if (showSearchResults && searchResults.isNotEmpty()) {
+            // 搜索栏
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 100.dp)
-                    .imePadding()
-                    .align(Alignment.BottomCenter),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
-                LazyColumn(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 300.dp)
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(searchResults) { pin ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp)
-                                .clickable {
-                                    // 跳转到标记位置
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { newValue: String ->
+                            searchQuery = newValue
+                            showSearchResults = newValue.isNotBlank()
+                        },
+                        placeholder = { Text("搜索标记...") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(searchFocusRequester),
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                            onSearch = {
+                                if (searchResults.isNotEmpty()) {
                                     scope.launch {
-                                val aMap = mapHolder.aMap ?: return@launch
+                                        val pin = searchResults.first()
+                                        val aMap = mapHolder.aMap ?: return@launch
                                         val latLng = LatLng(pin.latitude, pin.longitude)
-                                        aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                                        aMap.animateCamera(
+                                            CameraUpdateFactory.newLatLngZoom(
+                                                latLng,
+                                                16f
+                                            )
+                                        )
                                         showSearchResults = false
                                         searchQuery = ""
                                         keyboardController?.hide()
                                     }
                                 }
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp)
-                            ) {
-                                Text(
-                                    text = pin.title,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                pin.description?.let { description ->
-                                    Text(
-                                        text = description,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
-                                    )
-                                }
                             }
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    )
+
+                    if (searchQuery.isNotBlank()) {
+                        IconButton(onClick = {
+                            searchQuery = ""
+                            showSearchResults = false
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "清除搜索")
                         }
                     }
                 }
             }
         }
-    }
 
-    // 监听 pins 变化，更新地图标记
-    LaunchedEffect(pins) {
-        val aMap = mapHolder.aMap ?: return@LaunchedEffect
+        // 监听 pins 变化，更新地图标记
+        LaunchedEffect(pins) {
+            val aMap = mapHolder.aMap ?: return@LaunchedEffect
 
-        // 清除所有标记
-        aMap.clear()
+            aMap.clear()
 
-        // 添加新标记
-        pins.forEach { pin ->
-            val markerOptions = MarkerOptions()
-                .position(LatLng(pin.latitude, pin.longitude))
-                .title(pin.title)
-                .snippet(pin.id.toString())
-                .draggable(true)
-                .anchor(0.5f, 0.5f)
+            pins.forEach { pin ->
+                val color = categories.find { it.id == pin.categoryId }?.color ?: 0xFF666666.toInt()
+                val label = pin.title.take(1)
 
-            // 添加标记到地图
-            aMap.addMarker(markerOptions)
+                val avatarBitmap = pin.avatarPath?.let { path ->
+                    try {
+                        val filePath =
+                            if (path.startsWith("file://")) path.toUri().path else path
+                        filePath?.let { BitmapFactory.decodeFile(it) }
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+
+                val size = context.resources.displayMetrics.density.let { d -> (72 * d).toInt() }
+                val arrowH = (12 * context.resources.displayMetrics.density).toInt()
+                val totalH = (size * 1.25f).toInt() + arrowH
+                val bubble = createBitmap(size, totalH)
+                val canvas = Canvas(bubble)
+
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+                paint.color = 0xFFFFFFFF.toInt()
+
+                // Bubble body (rounded rect)
+                val bodyB = totalH - arrowH - 4f
+                val rect = RectF(4f, 4f, size - 4f, bodyB)
+                canvas.drawRoundRect(rect, 16f, 16f, paint)
+
+                // Arrow
+                val arrowPath = android.graphics.Path().apply {
+                    val cx = size / 2f
+                    val arrowTop = bodyB
+                    moveTo(cx - 10f, arrowTop)
+                    lineTo(cx + 10f, arrowTop)
+                    lineTo(cx, totalH - 4f)
+                    close()
+                }
+                canvas.drawPath(arrowPath, paint)
+
+                val cx = size / 2f
+                val cy = (size * 1.25f) / 2f - 8f
+                val r = size / 2f - 16f
+
+                if (avatarBitmap != null) {
+                    val scaled = avatarBitmap.scale((r * 2).toInt(), (r * 2).toInt())
+                    val clipPath = android.graphics.Path()
+                        .apply { addCircle(cx, cy, r, android.graphics.Path.Direction.CW) }
+                    canvas.save()
+                    canvas.clipPath(clipPath)
+                    canvas.drawBitmap(scaled, cx - r, cy - r, null)
+                    canvas.restore()
+                } else {
+                    paint.color = color
+                    canvas.drawCircle(cx, cy, r, paint)
+                    if (label.isNotEmpty()) {
+                        paint.color = 0xFFFFFFFF.toInt()
+                        paint.textSize = r * 1.2f
+                        paint.textAlign = Paint.Align.CENTER
+                        paint.typeface = Typeface.DEFAULT_BOLD
+                        canvas.drawText(label, cx, cy + paint.textSize / 3, paint)
+                    }
+                }
+
+                val markerIcon = BitmapDescriptorFactory.fromBitmap(bubble)
+                val markerOptions = MarkerOptions()
+                    .position(LatLng(pin.latitude, pin.longitude))
+                    .icon(markerIcon)
+                    .snippet(pin.id.toString())
+                    .draggable(true)
+                    .anchor(0.5f, 1.0f)
+
+                aMap.addMarker(markerOptions)
+            }
         }
     }
 }

@@ -68,6 +68,7 @@ dependencies {
     // 高德地图 SDK
     implementation(libs.amap3d)
     implementation(libs.amap.location)
+    implementation(libs.amap.search)
 
     // Room 数据库
     implementation(libs.room.runtime)
