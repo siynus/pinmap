@@ -15,6 +15,7 @@ import com.sinus.pinmap.ui.screens.MapScreen
 import com.sinus.pinmap.ui.screens.OfflineMapScreen
 import com.sinus.pinmap.ui.screens.PinEditScreen
 import com.sinus.pinmap.ui.screens.PinListScreen
+import com.sinus.pinmap.ui.screens.SettingsScreen
 
 @Composable
 fun PinmapNavGraph(
@@ -99,6 +100,10 @@ fun PinmapNavGraph(
 
         composable(Screen.OfflineMap.mRoute) {
             OfflineMapScreen()
+        }
+
+        composable(Screen.Settings.mRoute) {
+            SettingsScreen()
         }
     }
 }

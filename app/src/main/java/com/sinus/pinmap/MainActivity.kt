@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
                         TabItem("地图", Icons.Default.LocationOn, Screen.Map.mRoute),
                         TabItem("标记列表", Icons.AutoMirrored.Filled.List, Screen.PinList.mRoute),
                         TabItem("分类管理", Icons.Default.Edit, Screen.CategoryList.mRoute),
+                        TabItem("设置", Icons.Default.Settings, Screen.Settings.mRoute, visible = false),
                         TabItem("离线地图", Icons.Default.Info, Screen.OfflineMap.mRoute, visible = false)
                     )
                 }
@@ -87,13 +89,14 @@ class MainActivity : ComponentActivity() {
                                             Screen.Map.mRoute -> "地图"
                                             Screen.PinList.mRoute -> "标记列表"
                                             Screen.CategoryList.mRoute -> "分类管理"
+                                            Screen.Settings.mRoute -> "设置"
                                             else -> "Pinmap"
                                         }
                                     )
                                 },
                                 navigationIcon = {
                                     IconButton(onClick = {
-                                        scope.launch { drawerState.open() }
+//                                        scope.launch { drawerState.open() }
                                     }) {
                                         Icon(Icons.Default.Menu, contentDescription = "菜单")
                                     }

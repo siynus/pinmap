@@ -3,6 +3,7 @@ package com.sinus.pinmap.ui.screens
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -64,6 +65,7 @@ import com.amap.api.services.poisearch.PoiResultV2
 import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
+import com.sinus.pinmap.ui.utils.AuthState
 
 /**
  * 地图页面
@@ -279,7 +281,11 @@ fun MapScreen(
 
             // 设置地图长按事件（用于创建标记）
             aMap.setOnMapLongClickListener { latLng ->
-                onNavigateToCreate(latLng.latitude, latLng.longitude)
+                if (AuthState.isAmapKeyValid(context)) {
+                    onNavigateToCreate(latLng.latitude, latLng.longitude)
+                } else {
+                    Toast.makeText(context, "API Key 验证失败，无法创建标记", Toast.LENGTH_SHORT).show()
+                }
             }
 
             // 设置标记点击事件

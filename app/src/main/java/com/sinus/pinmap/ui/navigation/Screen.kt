@@ -11,6 +11,7 @@ sealed class Screen(val mRoute: String) {
     object PinList : Screen("pin_list")
     object CategoryList : Screen("category_list")
     object OfflineMap : Screen("offline_map")
+    object Settings : Screen("settings")
     object FieldTemplates : Screen("field_templates/{categoryId}") {
         fun createRoute(categoryId: Long) = "field_templates/$categoryId"
     }
