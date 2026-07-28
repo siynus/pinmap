@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -24,11 +25,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -46,6 +50,7 @@ import com.amap.api.maps.model.Marker
 import com.amap.api.maps.model.MarkerOptions
 import com.amap.api.services.poisearch.PoiSearchV2
 import com.sinus.pinmap.data.database.PinmapDatabase
+import com.sinus.pinmap.data.entity.Pin
 import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.LocationManager
 import com.sinus.pinmap.ui.viewmodel.MapHolderViewModel
@@ -156,6 +161,11 @@ fun MapScreen(
     val mapView = mapHolder.init(context)
 
     var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
+    var viewerPin by remember { mutableStateOf<Pin?>(null) }
+    var highlightedPinId by remember { mutableStateOf<Long?>(null) }
+    var poiHighlightLat by remember { mutableDoubleStateOf(0.0) }
+    var poiHighlightLng by remember { mutableDoubleStateOf(0.0) }
+    var isDragging by remember { mutableStateOf(false) }
 
     // 位置权限请求
     var hasLocationPermission by remember {
@@ -304,27 +314,53 @@ fun MapScreen(
             aMap.setOnMarkerClickListener { marker ->
                 marker.hideInfoWindow()
                 val pinId = marker.snippet?.toLongOrNull() ?: return@setOnMarkerClickListener false
-                onNavigateToEdit(pinId)
+                val pin = pins.find { it.id == pinId }
+                if (pin?.avatarPath != null) {
+                    viewerPin = pin
+                } else {
+                    onNavigateToEdit(pinId)
+                }
                 true
             }
 
             // 设置标记拖拽事件
             aMap.setOnMarkerDragListener(object : com.amap.api.maps.AMap.OnMarkerDragListener {
-                override fun onMarkerDragStart(marker: com.amap.api.maps.model.Marker?) {}
+                override fun onMarkerDragStart(marker: com.amap.api.maps.model.Marker?) {
+                    isDragging = true
+                }
                 override fun onMarkerDrag(marker: com.amap.api.maps.model.Marker?) {}
                 override fun onMarkerDragEnd(marker: com.amap.api.maps.model.Marker?) {
                     val id = marker?.snippet?.toLongOrNull() ?: return
                     val pos = marker.position
                     scope.launch {
                         pinRepository.getPinById(id)?.let { pin ->
+                            val address = try {
+                                kotlinx.coroutines.suspendCancellableCoroutine<String?> { cont ->
+                                    val search = com.amap.api.services.geocoder.GeocodeSearch(context)
+                                    search.setOnGeocodeSearchListener(object : com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener {
+                                        override fun onRegeocodeSearched(res: com.amap.api.services.geocoder.RegeocodeResult?, code: Int) {
+                                            cont.resume(if (code == 1000 && res != null) res.regeocodeAddress.formatAddress else null, null)
+                                        }
+                                        override fun onGeocodeSearched(res: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
+                                    })
+                                    search.getFromLocationAsyn(
+                                        com.amap.api.services.geocoder.RegeocodeQuery(
+                                            com.amap.api.services.core.LatLonPoint(pos.latitude, pos.longitude),
+                                            200f, com.amap.api.services.geocoder.GeocodeSearch.AMAP
+                                        )
+                                    )
+                                }
+                            } catch (_: Exception) { null }
                             pinRepository.updatePin(
                                 pin.copy(
                                     latitude = pos.latitude,
-                                    longitude = pos.longitude
+                                    longitude = pos.longitude,
+                                    address = address ?: pin.address
                                 )
                             )
                         }
                     }
+                    isDragging = false
                 }
             })
 
@@ -383,6 +419,7 @@ fun MapScreen(
                                         .clickable {
                                             scope.launch {
                                                 val aMap = mapHolder.aMap ?: return@launch
+                                                highlightedPinId = pin.id
                                                 aMap.animateCamera(
                                                     CameraUpdateFactory.newLatLngZoom(
                                                         LatLng(
@@ -432,6 +469,8 @@ fun MapScreen(
                                         .padding(8.dp)
                                         .clickable {
                                             val aMap = mapHolder.aMap ?: return@clickable
+                                            poiHighlightLat = poi.latLonPoint.latitude
+                                            poiHighlightLng = poi.latLonPoint.longitude
                                             aMap.animateCamera(
                                                 CameraUpdateFactory.newLatLngZoom(
                                                     LatLng(
@@ -628,8 +667,9 @@ fun MapScreen(
         }
 
         // 监听 pins 变化，更新地图标记
-        LaunchedEffect(filteredPins, categories) {
+        LaunchedEffect(filteredPins, categories, highlightedPinId) {
             val aMap = mapHolder.aMap ?: return@LaunchedEffect
+            if (isDragging) return@LaunchedEffect
 
             aMap.clear()
 
@@ -656,15 +696,47 @@ fun MapScreen(
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG)
                 paint.color = color
 
-                // Bubble body (rounded rect)
-                val bodyB = totalH - arrowH - 4f
-                val rect = RectF(4f, 4f, size - 4f, bodyB)
-                canvas.drawRoundRect(rect, 16f, 16f, paint)
+                if (avatarBitmap != null) {
+                    val cx = size / 2f
+                    val cy = size / 2f
+                    val r = size / 2f - 4f
+                    val minDim = minOf(avatarBitmap.width, avatarBitmap.height)
+                    val srcX = ((avatarBitmap.width - minDim) / 2f).toInt()
+                    val srcY = ((avatarBitmap.height - minDim) / 2f).toInt()
+                    val srcRect = android.graphics.Rect(srcX, srcY, srcX + minDim, srcY + minDim)
+                    val dstRect = android.graphics.RectF(cx - r, cy - r, cx + r, cy + r)
+                    val clipPath = android.graphics.Path()
+                        .apply { addCircle(cx, cy, r, android.graphics.Path.Direction.CW) }
+                    canvas.save()
+                    canvas.clipPath(clipPath)
+                    canvas.drawBitmap(avatarBitmap, srcRect, dstRect, null)
+                    canvas.restore()
+                    paint.style = Paint.Style.STROKE
+                    paint.strokeWidth = 3f
+                    paint.color = 0xFFFFFFFF.toInt()
+                    canvas.drawCircle(cx, cy, r, paint)
+                    paint.style = Paint.Style.FILL
+                } else {
+                    val bodyB = totalH - arrowH - 4f
+                    val rect = android.graphics.RectF(4f, 4f, size - 4f, bodyB)
+                    canvas.drawRoundRect(rect, 16f, 16f, paint)
+                    val cx = size / 2f
+                    val cy = bodyB / 2f
+                    val r = bodyB / 2f - 8f
+                    if (label.isNotEmpty()) {
+                        paint.color = 0xFFFFFFFF.toInt()
+                        paint.textSize = r * 1.4f
+                        paint.textAlign = Paint.Align.CENTER
+                        paint.typeface = Typeface.DEFAULT_BOLD
+                        canvas.drawText(label, cx, cy + paint.textSize / 3, paint)
+                    }
+                }
 
                 // Arrow
+                paint.color = color
+                val cx = size / 2f
                 val arrowPath = android.graphics.Path().apply {
-                    val cx = size / 2f
-                    val arrowTop = bodyB
+                    val arrowTop = if (avatarBitmap != null) size - 4f else totalH - arrowH - 4f
                     moveTo(cx - 10f, arrowTop)
                     lineTo(cx + 10f, arrowTop)
                     lineTo(cx, totalH - 4f)
@@ -672,28 +744,20 @@ fun MapScreen(
                 }
                 canvas.drawPath(arrowPath, paint)
 
-                val cx = size / 2f
-                val cy = size / 2f
-                val r = size / 2f - 8f
-
-                if (avatarBitmap != null) {
-                    val avatarR = r * 0.8f
-                    val scaled = avatarBitmap.scale((avatarR * 2).toInt(), (avatarR * 2).toInt())
-                    val clipPath = android.graphics.Path()
-                        .apply { addCircle(cx, cy, avatarR, android.graphics.Path.Direction.CW) }
-                    canvas.withClip(clipPath) {
-                        drawBitmap(scaled, cx - avatarR, cy - avatarR, null)
+                // 高亮边框
+                if (pin.id == highlightedPinId) {
+                    paint.style = Paint.Style.STROKE
+                    paint.strokeWidth = 4f
+                    paint.color = 0xFFFF4444.toInt()
+                    if (avatarBitmap != null) {
+                        val r = size / 2f - 4f
+                        canvas.drawCircle(size / 2f, size / 2f, r + 2f, paint)
+                    } else {
+                        val bodyB = totalH - arrowH - 4f
+                        val rect = android.graphics.RectF(2f, 2f, size - 2f, bodyB + 2f)
+                        canvas.drawRoundRect(rect, 14f, 14f, paint)
                     }
-                } else {
-                    paint.color = color
-                    canvas.drawCircle(cx, cy, r, paint)
-                    if (label.isNotEmpty()) {
-                        paint.color = 0xFFFFFFFF.toInt()
-                        paint.textSize = r * 1.2f
-                        paint.textAlign = Paint.Align.CENTER
-                        paint.typeface = Typeface.DEFAULT_BOLD
-                        canvas.drawText(label, cx, cy + paint.textSize / 3, paint)
-                    }
+                    paint.style = Paint.Style.FILL
                 }
 
                 val markerIcon = BitmapDescriptorFactory.fromBitmap(bubble)
@@ -705,6 +769,56 @@ fun MapScreen(
                     .anchor(0.5f, 1.0f)
 
                 aMap.addMarker(markerOptions)
+            }
+        }
+    }
+
+    // POI 地址搜索结果高亮
+    LaunchedEffect(poiHighlightLat, poiHighlightLng) {
+        val aMap = mapHolder.aMap ?: return@LaunchedEffect
+        if (poiHighlightLat != 0.0 || poiHighlightLng != 0.0) {
+            aMap.addMarker(
+                MarkerOptions()
+                    .position(LatLng(poiHighlightLat, poiHighlightLng))
+                    .title("搜索结果")
+                    .zIndex(998f)
+            )
+        }
+    }
+
+    viewerPin?.let { pin ->
+        Dialog(
+            onDismissRequest = { viewerPin = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .clickable { viewerPin = null }
+            ) {
+                if (pin.avatarPath != null) {
+                    Image(
+                        painter = coil.compose.rememberAsyncImagePainter(
+                            if (pin.avatarPath.startsWith("/")) pin.avatarPath else "file://${pin.avatarPath}"
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(32.dp)
+                ) {
+                    Button(onClick = {
+                        viewerPin = null
+                        onNavigateToEdit(pin.id)
+                    }) { Text("编辑") }
+                }
             }
         }
     }

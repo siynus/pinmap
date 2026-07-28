@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -138,6 +139,7 @@ fun PinEditScreen(
     var menuUrl by remember { mutableStateOf<String?>(null) }
     var menuPosX by remember { mutableFloatStateOf(0f) }
     var menuPosY by remember { mutableFloatStateOf(0f) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     var addressSuggestions by remember { mutableStateOf<List<PoiItemV2>>(emptyList()) }
     var addressSearching by remember { mutableStateOf(false) }
     var addressFocused by remember { mutableStateOf(false) }
@@ -307,6 +309,13 @@ fun PinEditScreen(
                 title = { Text(if (isCreate) "新建标记" else "编辑标记") },
                 navigationIcon = {
                     IconButton(onClick = { onBack(pinLat, pinLng) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+                },
+                actions = {
+                    if (!isCreate) {
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "删除标记")
+                        }
+                    }
                 }
             )
         }
@@ -644,6 +653,29 @@ fun PinEditScreen(
                 )
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("删除标记") },
+            text = { Text("确定要删除此标记吗？\n\n此操作不可恢复。") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirm = false
+                        scope.launch {
+                            pinRepository.deletePinById(pinId)
+                            onBack(pinLat, pinLng)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("取消") }
+            }
+        )
     }
 
     if (viewerImages.isNotEmpty()) {
