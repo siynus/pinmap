@@ -161,6 +161,7 @@ fun MapScreen(
     val mapView = mapHolder.init(context)
 
     var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
+    var markerMap by remember { mutableStateOf<Map<Long, Marker>>(emptyMap()) }
     var viewerPin by remember { mutableStateOf<Pin?>(null) }
     var highlightedPinId by remember { mutableStateOf<Long?>(null) }
     var poiHighlightLat by remember { mutableDoubleStateOf(0.0) }
@@ -671,11 +672,26 @@ fun MapScreen(
             val aMap = mapHolder.aMap ?: return@LaunchedEffect
             if (isDragging) return@LaunchedEffect
 
-            aMap.clear()
+            val currentIds = filteredPins.map { it.id }.toSet()
+            val oldIds = markerMap.keys
 
+            // 移除已删除的标记
+            oldIds.subtract(currentIds).forEach { id ->
+                markerMap[id]?.remove()
+            }
+
+            // 添加新标记，高亮变化时重建所有（无 aMap.clear 不闪）
+            val newMap = markerMap.toMutableMap()
             filteredPins.forEach { pin ->
-                val color = categories.find { it.id == pin.categoryId }?.color ?: 0xFF666666.toInt()
-                val label = pin.title.take(1)
+                val oldMarker = markerMap[pin.id]
+                if (oldMarker != null && highlightedPinId != pin.id && oldMarker.position == LatLng(pin.latitude, pin.longitude)) {
+                    // 标记未变化且不是高亮目标，跳过
+                    newMap[pin.id] = oldMarker
+                } else {
+                    // 需要创建新标记或更新旧标记
+                    oldMarker?.remove()
+                    val color = categories.find { it.id == pin.categoryId }?.color ?: 0xFF666666.toInt()
+                    val label = pin.title.take(1)
 
                 val avatarBitmap = pin.avatarPath?.let { path ->
                     try {
@@ -768,8 +784,11 @@ fun MapScreen(
                     .draggable(true)
                     .anchor(0.5f, 1.0f)
 
-                aMap.addMarker(markerOptions)
+                val marker = aMap.addMarker(markerOptions)
+                marker?.let { newMap[pin.id] = it }
+                }
             }
+            markerMap = newMap
         }
     }
 

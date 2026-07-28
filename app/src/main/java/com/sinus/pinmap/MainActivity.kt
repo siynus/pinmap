@@ -121,6 +121,7 @@ class MainActivity : ComponentActivity() {
                                                 navController.navigate(tab.route) {
                                                     popUpTo(navController.graph.startDestinationId) { saveState = true }
                                                     launchSingleTop = true
+                                                    restoreState = true
                                                 }
                                             }
                                         },
