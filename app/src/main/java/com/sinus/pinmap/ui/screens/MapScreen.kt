@@ -103,8 +103,11 @@ fun MapScreen(
     var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
     val filteredPins by remember(pins, selectedCategoryId) {
         derivedStateOf {
-            if (selectedCategoryId == null) pins
-            else pins.filter { it.categoryId == selectedCategoryId }
+            if (selectedCategoryId == null) {
+                pins
+            } else {
+                pins.filter { it.categoryId == selectedCategoryId }
+            }
         }
     }
 
@@ -140,7 +143,9 @@ fun MapScreen(
                 val search = PoiSearchV2(context, query)
                 search.setOnPoiSearchListener(object : PoiSearchV2.OnPoiSearchListener {
                     override fun onPoiSearched(result: PoiResultV2?, code: Int) {
-                        if (code == 1000) poiResults = result?.pois ?: emptyList()
+                        if (code == 1000) {
+                            poiResults = result?.pois ?: emptyList()
+                        }
                     }
 
                     override fun onPoiItemSearched(item: PoiItemV2?, code: Int) {}
@@ -200,7 +205,7 @@ fun MapScreen(
 
     // 初始化地图位置
     LaunchedEffect(mapView) {
-        if (!mapHolder.mIsInitialized) {
+        if (!mapHolder._isInitialized) {
             val aMap = mapView.map ?: return@LaunchedEffect
             mapHolder.setAMap(aMap)
 
@@ -280,7 +285,7 @@ fun MapScreen(
         snapshotFlow { imeInsets.getBottom(density) }
             .collect { imePx ->
                 searchBottom = if (imePx > 0) {
-                    (with(density) { imePx.toDp() } - 80.dp).coerceAtLeast(0.dp)
+                    (with(density) { imePx.toDp() } - NAV_BAR_GAP).coerceAtLeast(0.dp)
                 } else {
                     16.dp
                 }
@@ -396,9 +401,9 @@ fun MapScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 300.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = SEARCH_RESULT_MAX_HEIGHT)
                     ) {
                         if (searchResults.isNotEmpty()) {
                             item {
@@ -581,7 +586,7 @@ fun MapScreen(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = searchBottom + 64.dp)
+                .padding(start = 16.dp, bottom = searchBottom + FAB_OFFSET)
         ) {
             SmallFloatingActionButton(
                 onClick = { showCategoryFilter = true },
@@ -661,7 +666,7 @@ fun MapScreen(
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = searchBottom + 64.dp),
+                .padding(end = 16.dp, bottom = searchBottom + FAB_OFFSET),
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
@@ -670,7 +675,9 @@ fun MapScreen(
         // 监听 pins 变化，更新地图标记
         LaunchedEffect(filteredPins, categories, highlightedPinId) {
             val aMap = mapHolder.aMap ?: return@LaunchedEffect
-            if (isDragging) return@LaunchedEffect
+            if (isDragging) {
+                return@LaunchedEffect
+            }
 
             val currentIds = filteredPins.map { it.id }.toSet()
             val oldIds = markerMap.keys
@@ -690,7 +697,7 @@ fun MapScreen(
                 } else {
                     // 需要创建新标记或更新旧标记
                     oldMarker?.remove()
-                    val color = categories.find { it.id == pin.categoryId }?.color ?: 0xFF666666.toInt()
+                    val color = categories.find { it.id == pin.categoryId }?.color ?: DEFAULT_PIN_COLOR
                     val label = pin.title.take(1)
 
                 val avatarBitmap = pin.avatarPath?.let { path ->
@@ -729,7 +736,7 @@ fun MapScreen(
                     canvas.restore()
                     paint.style = Paint.Style.STROKE
                     paint.strokeWidth = 3f
-                    paint.color = 0xFFFFFFFF.toInt()
+                    paint.color = COLOR_WHITE_INT
                     canvas.drawCircle(cx, cy, r, paint)
                     paint.style = Paint.Style.FILL
                 } else {
@@ -740,7 +747,7 @@ fun MapScreen(
                     val cy = bodyB / 2f
                     val r = bodyB / 2f - 8f
                     if (label.isNotEmpty()) {
-                        paint.color = 0xFFFFFFFF.toInt()
+                        paint.color = COLOR_WHITE_INT
                         paint.textSize = r * 1.4f
                         paint.textAlign = Paint.Align.CENTER
                         paint.typeface = Typeface.DEFAULT_BOLD
@@ -764,7 +771,7 @@ fun MapScreen(
                 if (pin.id == highlightedPinId) {
                     paint.style = Paint.Style.STROKE
                     paint.strokeWidth = 4f
-                    paint.color = 0xFFFF4444.toInt()
+                    paint.color = HIGHLIGHT_RED
                     if (avatarBitmap != null) {
                         val r = size / 2f - 4f
                         canvas.drawCircle(size / 2f, size / 2f, r + 2f, paint)
@@ -842,3 +849,10 @@ fun MapScreen(
         }
     }
 }
+
+private val DEFAULT_PIN_COLOR = 0xFF666666.toInt()
+private val COLOR_WHITE_INT = 0xFFFFFFFF.toInt()
+private val HIGHLIGHT_RED = 0xFFFF4444.toInt()
+private val NAV_BAR_GAP = 80.dp
+private val FAB_OFFSET = 64.dp
+private val SEARCH_RESULT_MAX_HEIGHT = 300.dp

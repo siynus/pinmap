@@ -276,7 +276,9 @@ fun PinEditScreen(
 
     fun getImages(template: FieldTemplate): List<String> {
         val edited = editingImages[template.id]
-        if (edited != null) return edited
+        if (edited != null) {
+            return edited
+        }
         return fieldValues[template.id]?.map { it.value ?: "" } ?: emptyList()
     }
 
@@ -328,7 +330,7 @@ fun PinEditScreen(
                 item {
                     val avatarUri = editingAvatar ?: avatarPath
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable {
+                        Box(modifier = Modifier.size(AVATAR_SIZE).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable {
                             pendingImageTemplateId = -1L; imagePickerLauncher.launch("image/*")
                         }, contentAlignment = Alignment.Center) {
                             if (avatarUri != null) {
@@ -368,8 +370,13 @@ fun PinEditScreen(
                                                 if (code == 1000 && result != null) {
                                                     address = result.regeocodeAddress.formatAddress
                                                     markDirty()
-                                                }
-                                            }
+    }
+}
+
+private val THUMBNAIL_SIZE = 120.dp
+private val POPUP_MAX_WIDTH = 180.dp
+private val AVATAR_SIZE = 64.dp
+private val ICON_SIZE_48 = 48.dp
                                             override fun onGeocodeSearched(result: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
                                         })
                                         search.getFromLocationAsyn(RegeocodeQuery(LatLonPoint(pinLat, pinLng), 200f, GeocodeSearch.AMAP))
@@ -450,7 +457,9 @@ fun PinEditScreen(
                 }
 
                 itemsIndexed(templates) { index, template ->
-                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    if (index > 0) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    }
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
                         when (template.fieldType) {
                             FieldType.TEXT -> {
@@ -478,7 +487,7 @@ fun PinEditScreen(
                                         itemsIndexed(images) { index, img ->
                                             var imgPos by remember { mutableStateOf(Offset.Zero) }
                                             Box(modifier = Modifier
-                                                .size(120.dp)
+                                                .size(THUMBNAIL_SIZE)
                                                 .onGloballyPositioned { imgPos = it.positionInWindow() }
                                                 .combinedClickable(
                                                     onClick = { viewerImages = images; viewerStartIndex = index },
@@ -518,7 +527,7 @@ fun PinEditScreen(
                                         itemsIndexed(videos) { _, video ->
                                             var videoPos by remember { mutableStateOf(Offset.Zero) }
                                             Box(modifier = Modifier
-                                                .size(120.dp)
+                                                .size(THUMBNAIL_SIZE)
                                                 .onGloballyPositioned { videoPos = it.positionInWindow() }
                                                 .combinedClickable(
                                                     onClick = { playingVideo = video },
@@ -530,7 +539,7 @@ fun PinEditScreen(
                                                 )
                                             ) {
                                                 VideoThumbnail(videoUri = video, modifier = Modifier.fillMaxSize())
-                                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.Center).size(48.dp))
+                                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.surface,                         modifier = Modifier.align(Alignment.Center).size(ICON_SIZE_48))
                                                 Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
                                                     editingImages = editingImages + (template.id to (videos - video)); markDirty()
                                                 }) { Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.padding(4.dp)) }
@@ -748,7 +757,9 @@ fun PinEditScreen(
                                         }
                                     } while (event.changes.any { it.pressed })
                                     longPressJob.cancel()
-                                    if (!longPressed && !multi && !moved) viewerImages = emptyList()
+                                    if (!longPressed && !multi && !moved) {
+                                        viewerImages = emptyList()
+                                    }
                                 }
                             }
                             .graphicsLayer {
@@ -786,7 +797,7 @@ fun PinEditScreen(
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 2.dp,
                         shadowElevation = 4.dp,
-                        modifier = Modifier.widthIn(max = 180.dp)
+                        modifier = Modifier.widthIn(max = POPUP_MAX_WIDTH)
                     ) {
                         Column {
                             TextButton(
@@ -826,7 +837,7 @@ fun PinEditScreen(
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 2.dp,
                 shadowElevation = 4.dp,
-                modifier = Modifier.widthIn(max = 180.dp)
+                modifier = Modifier.widthIn(max = POPUP_MAX_WIDTH)
             ) {
                 Column {
                     TextButton(

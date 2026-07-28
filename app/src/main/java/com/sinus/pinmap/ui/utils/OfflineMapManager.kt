@@ -19,7 +19,9 @@ class OfflineMapManager(context: Context) {
             }
             override fun onCheckUpdate(hasNew: Boolean, cityName: String) {}
             override fun onRemove(success: Boolean, cityName: String, describe: String) {
-                if (success) mDownloadStates.remove(cityName)
+                if (success) {
+                    mDownloadStates.remove(cityName)
+                }
             }
         }
     )

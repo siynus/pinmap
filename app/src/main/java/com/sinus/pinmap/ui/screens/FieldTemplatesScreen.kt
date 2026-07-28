@@ -83,7 +83,9 @@ fun FieldTemplatesScreen(
                                             dragOffset += amount.y
                                             val list = templates
                                             val i = list.indexOfFirst { it.id == template.id }
-                                            if (i < 0) return@detectDragGesturesAfterLongPress
+                                            if (i < 0) {
+                                                return@detectDragGesturesAfterLongPress
+                                            }
                                             val h = size.height.toFloat()
                                             if (dragOffset > h && i < list.size - 1) {
                                                 dragOffset -= h

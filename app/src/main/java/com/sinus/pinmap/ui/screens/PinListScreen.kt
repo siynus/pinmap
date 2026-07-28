@@ -98,27 +98,27 @@ fun PinListScreen(
                         selected = selectedCategoryId == null,
                         onClick = { viewModel.setSelectedCategory(null) },
                         label = { Text("全部") },
-                        modifier = Modifier.height(36.dp)
-                    )
-
-                    categories.forEach { category ->
-                        FilterChip(
-                            selected = selectedCategoryId == category.id,
-                            onClick = { viewModel.setSelectedCategory(category.id) },
-                            label = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(12.dp)
-                                            .background(Color(category.color), CircleShape)
+                                        modifier = Modifier.height(FILTER_CHIP_HEIGHT)
                                     )
-                                    Text(category.name)
-                                }
-                            },
-                            modifier = Modifier.height(36.dp)
+
+                                    categories.forEach { category ->
+                                        FilterChip(
+                                            selected = selectedCategoryId == category.id,
+                                            onClick = { viewModel.setSelectedCategory(category.id) },
+                                            label = {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(12.dp)
+                                                            .background(Color(category.color), CircleShape)
+                                                    )
+                                                    Text(category.name)
+                                                }
+                                            },
+                                            modifier = Modifier.height(FILTER_CHIP_HEIGHT)
                         )
                     }
                 }
@@ -255,6 +255,10 @@ fun PinListScreen(
     }
 }
 
+private val FILTER_CHIP_HEIGHT = 36.dp
+private val PIN_AVATAR_SIZE = 40.dp
+private val DISTANCE_GREEN = Color(0xFF4CAF50)
+
 @Composable
 private fun PinItem(
     pin: Pin,
@@ -283,13 +287,13 @@ private fun PinItem(
                 if (category != null) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(PIN_AVATAR_SIZE)
                             .background(Color(category.color), CircleShape)
                     )
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(PIN_AVATAR_SIZE)
                             .background(
                                 MaterialTheme.colorScheme.surfaceVariant,
                                 CircleShape
@@ -313,7 +317,7 @@ private fun PinItem(
                         Text(
                             text = if (distanceKm < 1f) "<1km" else "%.1fkm".format(distanceKm),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF4CAF50)
+                                    color = DISTANCE_GREEN
                         )
                     }
                     pin.description?.let { description ->
