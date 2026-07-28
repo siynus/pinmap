@@ -3,6 +3,11 @@ package com.sinus.pinmap.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -42,13 +47,26 @@ fun PinmapNavGraph(
         }
     ) {
         composable(Screen.Map.mRoute) {
+            val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
+            val focusLat by savedStateHandle?.getStateFlow<Double?>("focusLat", null)
+                ?.collectAsState() ?: remember { mutableStateOf(null) }
+            val focusLng by savedStateHandle?.getStateFlow<Double?>("focusLng", null)
+                ?.collectAsState() ?: remember { mutableStateOf(null) }
+            LaunchedEffect(focusLat, focusLng) {
+                if (focusLat != null && focusLng != null) {
+                    savedStateHandle?.remove<Double>("focusLat")
+                    savedStateHandle?.remove<Double>("focusLng")
+                }
+            }
             MapScreen(
                 onNavigateToEdit = { pinId ->
                     navController.navigate(Screen.PinEdit.createRoute(pinId))
                 },
                 onNavigateToCreate = { lat, lng ->
                     navController.navigate(Screen.PinEdit.createRoute(null, lat, lng))
-                }
+                },
+                focusLat = focusLat,
+                focusLng = focusLng
             )
         }
 
@@ -67,7 +85,13 @@ fun PinmapNavGraph(
                 pinId = pinId,
                 lat = lat,
                 lng = lng,
-                onBack = { navController.popBackStack() }
+                onBack = { savedLat, savedLng ->
+                    navController.previousBackStackEntry?.savedStateHandle?.apply {
+                        set("focusLat", savedLat)
+                        set("focusLng", savedLng)
+                    }
+                    navController.popBackStack()
+                }
             )
         }
 

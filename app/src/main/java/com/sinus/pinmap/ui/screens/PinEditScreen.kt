@@ -46,6 +46,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -78,9 +79,12 @@ import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
+import com.amap.api.services.core.PoiItemV2
 import com.amap.api.services.core.LatLonPoint
 import com.amap.api.services.geocoder.GeocodeSearch
 import com.amap.api.services.geocoder.RegeocodeQuery
+import com.amap.api.services.poisearch.PoiResultV2
+import com.amap.api.services.poisearch.PoiSearchV2
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -97,7 +101,7 @@ fun PinEditScreen(
     pinId: Long,
     lat: Double = 0.0,
     lng: Double = 0.0,
-    onBack: () -> Unit
+    onBack: (Double, Double) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -134,6 +138,9 @@ fun PinEditScreen(
     var menuUrl by remember { mutableStateOf<String?>(null) }
     var menuPosX by remember { mutableFloatStateOf(0f) }
     var menuPosY by remember { mutableFloatStateOf(0f) }
+    var addressSuggestions by remember { mutableStateOf<List<PoiItemV2>>(emptyList()) }
+    var addressSearching by remember { mutableStateOf(false) }
+    var addressFocused by remember { mutableStateOf(false) }
 
     fun markDirty() { hasChanges = true }
 
@@ -181,6 +188,33 @@ fun PinEditScreen(
                 editingValues = emptyMap()
                 editingImages = emptyMap()
             }
+        }
+    }
+
+    LaunchedEffect(address, addressFocused) {
+        if (address.length < 2 || !addressFocused) {
+            addressSuggestions = emptyList()
+            return@LaunchedEffect
+        }
+        delay(300)
+        addressSearching = true
+        try {
+            val query = PoiSearchV2.Query(address, "", null)
+            val search = PoiSearchV2(context, query)
+            search.searchPOIAsyn()
+            search.setOnPoiSearchListener(object : PoiSearchV2.OnPoiSearchListener {
+                override fun onPoiSearched(result: PoiResultV2?, code: Int) {
+                    addressSuggestions = if (code == 1000 && result != null) {
+                        result.pois?.take(5) ?: emptyList()
+                    } else {
+                        emptyList()
+                    }
+                    addressSearching = false
+                }
+                override fun onPoiItemSearched(item: PoiItemV2?, code: Int) {}
+            })
+        } catch (_: Exception) {
+            addressSearching = false
         }
     }
 
@@ -272,7 +306,7 @@ fun PinEditScreen(
             TopAppBar(
                 title = { Text(if (isCreate) "新建标记" else "编辑标记") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+                    IconButton(onClick = { onBack(pinLat, pinLng) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
                 }
             )
         }
@@ -311,7 +345,7 @@ fun PinEditScreen(
                         value = address,
                         onValueChange = { address = it; markDirty() },
                         label = { Text("地址") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().onFocusChanged { addressFocused = it.isFocused },
                         singleLine = true,
                         trailingIcon = {
                             IconButton(
@@ -337,6 +371,43 @@ fun PinEditScreen(
                             }
                         }
                     )
+                }
+
+                if (addressSuggestions.isNotEmpty() || addressSearching) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Column {
+                                if (addressSearching) {
+                                    Text("搜索中...", modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+                                }
+                                addressSuggestions.forEach { poi ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                address = poi.title
+                                                pinLat = poi.latLonPoint.latitude
+                                                pinLng = poi.latLonPoint.longitude
+                                                addressSuggestions = emptyList()
+                                                markDirty()
+                                            }
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(poi.title, style = MaterialTheme.typography.bodyMedium)
+                                            poi.snippet?.let {
+                                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 item {
@@ -491,7 +562,7 @@ fun PinEditScreen(
                                 editingAvatar != null -> editingAvatar
                                 else -> avatarPath
                             }
-                            val newId = pinRepository.insertPin(Pin(latitude = lat, longitude = lng, title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
+                            val newId = pinRepository.insertPin(Pin(latitude = pinLat, longitude = pinLng, title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
                                     pinId = newId
                                     newId
                                 }
@@ -502,7 +573,7 @@ fun PinEditScreen(
                                             editingAvatar != null -> editingAvatar
                                             else -> avatarPath
                                         }
-                                        pinRepository.updatePin(pin.copy(title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
+                                        pinRepository.updatePin(pin.copy(latitude = pinLat, longitude = pinLng, title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
                                     }
                                     pinId
                                 }

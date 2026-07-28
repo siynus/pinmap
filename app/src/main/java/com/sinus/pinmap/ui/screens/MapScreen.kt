@@ -76,7 +76,9 @@ import com.sinus.pinmap.ui.utils.AuthState
 fun MapScreen(
     modifier: Modifier = Modifier,
     onNavigateToEdit: (Long) -> Unit = {},
-    onNavigateToCreate: (Double, Double) -> Unit = { _, _ -> }
+    onNavigateToCreate: (Double, Double) -> Unit = { _, _ -> },
+    focusLat: Double? = null,
+    focusLng: Double? = null
 ) {
     val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
@@ -246,6 +248,16 @@ fun MapScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(focusLat, focusLng) {
+        if (focusLat != null && focusLng != null) {
+            mapHolder.aMap?.moveCamera(
+                CameraUpdateFactory.newLatLngZoom(
+                    com.amap.api.maps.model.LatLng(focusLat, focusLng), 15f
+                )
+            )
         }
     }
 
