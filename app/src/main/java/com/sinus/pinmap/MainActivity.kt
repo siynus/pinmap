@@ -4,10 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Edit
@@ -31,7 +33,7 @@ import com.sinus.pinmap.ui.screens.PinListScreen
 import com.sinus.pinmap.ui.theme.PinmapTheme
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +44,8 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val navRoute = navBackStackEntry?.destination?.route ?: ""
-                var selectedTab by remember { mutableStateOf(Screen.Map.mRoute) }
+
+                val pagerState = rememberPagerState(pageCount = { 3 })
 
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
@@ -57,20 +60,21 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                val tabRoutes = tabs.filter { it.visible }.map { it.route }
+                val visibleTabs = tabs.filter { it.visible }
+                val tabRoutes = visibleTabs.map { it.route }
                 val isTabScreen = navRoute == "empty"
-                val displayRoute = if (isTabScreen) selectedTab else navRoute
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
-                    gesturesEnabled = selectedTab != Screen.Map.mRoute && isTabScreen,
+                    gesturesEnabled = pagerState.currentPage != 0 && isTabScreen,
                     drawerContent = {
                         NavigationDrawer(
-                            currentRoute = displayRoute,
+                            currentRoute = visibleTabs.getOrNull(pagerState.currentPage)?.route ?: navRoute,
                             onNavigate = { route ->
-                                if (route in tabRoutes) {
+                                val tabIndex = visibleTabs.indexOfFirst { it.route == route }
+                                if (tabIndex >= 0) {
                                     scope.launch {
-                                        selectedTab = route
+                                        pagerState.animateScrollToPage(tabIndex)
                                         drawerState.snapTo(DrawerValue.Closed)
                                         if (!isTabScreen) {
                                             navController.navigate("empty") { popUpTo("empty") { inclusive = true } }
@@ -94,11 +98,10 @@ class MainActivity : ComponentActivity() {
                             TopAppBar(
                                 title = {
                                     Text(
-                                        when (displayRoute) {
-                                            Screen.Map.mRoute -> "地图"
-                                            Screen.PinList.mRoute -> "标记列表"
-                                            Screen.CategoryList.mRoute -> "分类管理"
-                                            Screen.Settings.mRoute -> "设置"
+                                        when (pagerState.currentPage) {
+                                            0 -> "地图"
+                                            1 -> "标记列表"
+                                            2 -> "分类管理"
                                             else -> "Pinmap"
                                         }
                                     )
@@ -112,12 +115,13 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Box(Modifier.weight(1f)) {
-                            if (isTabScreen) {
-                                Box(
-                                    modifier = Modifier
-                                        .then(if (selectedTab == Screen.Map.mRoute) Modifier.fillMaxSize() else Modifier.size(0.dp))
-                                ) {
-                                    MapScreen(
+                            HorizontalPager(
+                                state = pagerState,
+                                userScrollEnabled = false,
+                                modifier = Modifier.fillMaxSize()
+                            ) { page ->
+                                when (page) {
+                                    0 -> MapScreen(
                                         onNavigateToEdit = { pinId ->
                                             navController.navigate(Screen.PinEdit.createRoute(pinId))
                                         },
@@ -125,28 +129,20 @@ class MainActivity : ComponentActivity() {
                                             navController.navigate(Screen.PinEdit.createRoute(null, lat, lng))
                                         }
                                     )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .then(if (selectedTab == Screen.PinList.mRoute) Modifier.fillMaxSize() else Modifier.size(0.dp))
-                                ) {
-                                    PinListScreen(
+                                    1 -> PinListScreen(
                                         onPinClick = { pinId ->
                                             navController.navigate(Screen.PinEdit.createRoute(pinId))
                                         }
                                     )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .then(if (selectedTab == Screen.CategoryList.mRoute) Modifier.fillMaxSize() else Modifier.size(0.dp))
-                                ) {
-                                    CategoryListScreen(
+                                    2 -> CategoryListScreen(
                                         onNavigateToFieldTemplates = { categoryId ->
                                             navController.navigate(Screen.FieldTemplates.createRoute(categoryId))
                                         }
                                     )
                                 }
-                            } else {
+                            }
+
+                            if (!isTabScreen) {
                                 SubPagesNavGraph(
                                     navController = navController
                                 )
@@ -155,12 +151,12 @@ class MainActivity : ComponentActivity() {
 
                         if (isTabScreen) {
                             NavigationBar {
-                                tabs.filter { it.visible }.forEach { tab ->
+                                visibleTabs.forEachIndexed { index, tab ->
                                     NavigationBarItem(
-                                        selected = selectedTab == tab.route,
+                                        selected = pagerState.currentPage == index,
                                         onClick = {
-                                            if (selectedTab != tab.route) {
-                                                selectedTab = tab.route
+                                            if (pagerState.currentPage != index) {
+                                                scope.launch { pagerState.animateScrollToPage(index) }
                                             }
                                         },
                                         icon = { Icon(tab.icon, contentDescription = tab.label) },
