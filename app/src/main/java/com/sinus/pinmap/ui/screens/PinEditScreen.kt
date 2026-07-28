@@ -96,6 +96,12 @@ import java.io.FileOutputStream
 import kotlin.math.roundToInt
 import androidx.core.net.toUri
 
+
+private val THUMBNAIL_SIZE = 120.dp
+private val POPUP_MAX_WIDTH = 180.dp
+private val AVATAR_SIZE = 64.dp
+private val ICON_SIZE_48 = 48.dp
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PinEditScreen(
@@ -370,13 +376,8 @@ fun PinEditScreen(
                                                 if (code == 1000 && result != null) {
                                                     address = result.regeocodeAddress.formatAddress
                                                     markDirty()
-    }
-}
-
-private val THUMBNAIL_SIZE = 120.dp
-private val POPUP_MAX_WIDTH = 180.dp
-private val AVATAR_SIZE = 64.dp
-private val ICON_SIZE_48 = 48.dp
+                                                }
+                                            }
                                             override fun onGeocodeSearched(result: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
                                         })
                                         search.getFromLocationAsyn(RegeocodeQuery(LatLonPoint(pinLat, pinLng), 200f, GeocodeSearch.AMAP))
