@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Edit
@@ -18,11 +19,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sinus.pinmap.ui.components.NavigationDrawer
-import com.sinus.pinmap.ui.navigation.PinmapNavGraph
 import com.sinus.pinmap.ui.navigation.Screen
+import com.sinus.pinmap.ui.navigation.SubPagesNavGraph
+import com.sinus.pinmap.ui.screens.CategoryListScreen
+import com.sinus.pinmap.ui.screens.MapScreen
+import com.sinus.pinmap.ui.screens.PinListScreen
 import com.sinus.pinmap.ui.theme.PinmapTheme
 import kotlinx.coroutines.launch
 
@@ -35,8 +40,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             PinmapTheme {
                 val navController = rememberNavController()
-                val backStackEntry by navController.currentBackStackEntryAsState()
-                val currentRoute = backStackEntry?.destination?.route ?: ""
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val navRoute = navBackStackEntry?.destination?.route ?: ""
+                var selectedTab by remember { mutableStateOf(Screen.Map.mRoute) }
 
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
@@ -52,28 +58,31 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val tabRoutes = tabs.filter { it.visible }.map { it.route }
-                val isTabScreen = currentRoute in tabRoutes
+                val isTabScreen = navRoute == "empty"
+                val displayRoute = if (isTabScreen) selectedTab else navRoute
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
-                    gesturesEnabled = currentRoute != "map",
+                    gesturesEnabled = selectedTab != Screen.Map.mRoute && isTabScreen,
                     drawerContent = {
                         NavigationDrawer(
-                            currentRoute = currentRoute,
+                            currentRoute = displayRoute,
                             onNavigate = { route ->
-                                if (route != currentRoute) {
+                                if (route in tabRoutes) {
                                     scope.launch {
+                                        selectedTab = route
                                         drawerState.snapTo(DrawerValue.Closed)
-                                        navController.navigate(route) {
-                                            popUpTo(navController.graph.startDestinationId) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
+                                        if (!isTabScreen) {
+                                            navController.navigate("empty") { popUpTo("empty") { inclusive = true } }
                                         }
                                     }
                                 } else {
                                     scope.launch {
                                         drawerState.snapTo(DrawerValue.Closed)
+                                        navController.navigate(route) {
+                                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                            launchSingleTop = true
+                                        }
                                     }
                                 }
                             }
@@ -85,7 +94,7 @@ class MainActivity : ComponentActivity() {
                             TopAppBar(
                                 title = {
                                     Text(
-                                        when (currentRoute) {
+                                        when (displayRoute) {
                                             Screen.Map.mRoute -> "地图"
                                             Screen.PinList.mRoute -> "标记列表"
                                             Screen.CategoryList.mRoute -> "分类管理"
@@ -95,9 +104,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 },
                                 navigationIcon = {
-                                    IconButton(onClick = {
-//                                        scope.launch { drawerState.open() }
-                                    }) {
+                                    IconButton(onClick = {}) {
                                         Icon(Icons.Default.Menu, contentDescription = "菜单")
                                     }
                                 }
@@ -105,24 +112,55 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Box(Modifier.weight(1f)) {
-                            PinmapNavGraph(
-                                navController = navController,
-                                onOpenDrawer = { scope.launch { drawerState.open() } }
-                            )
+                            if (isTabScreen) {
+                                Box(
+                                    modifier = Modifier
+                                        .then(if (selectedTab == Screen.Map.mRoute) Modifier.fillMaxSize() else Modifier.size(0.dp))
+                                ) {
+                                    MapScreen(
+                                        onNavigateToEdit = { pinId ->
+                                            navController.navigate(Screen.PinEdit.createRoute(pinId))
+                                        },
+                                        onNavigateToCreate = { lat, lng ->
+                                            navController.navigate(Screen.PinEdit.createRoute(null, lat, lng))
+                                        }
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .then(if (selectedTab == Screen.PinList.mRoute) Modifier.fillMaxSize() else Modifier.size(0.dp))
+                                ) {
+                                    PinListScreen(
+                                        onPinClick = { pinId ->
+                                            navController.navigate(Screen.PinEdit.createRoute(pinId))
+                                        }
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .then(if (selectedTab == Screen.CategoryList.mRoute) Modifier.fillMaxSize() else Modifier.size(0.dp))
+                                ) {
+                                    CategoryListScreen(
+                                        onNavigateToFieldTemplates = { categoryId ->
+                                            navController.navigate(Screen.FieldTemplates.createRoute(categoryId))
+                                        }
+                                    )
+                                }
+                            } else {
+                                SubPagesNavGraph(
+                                    navController = navController
+                                )
+                            }
                         }
 
                         if (isTabScreen) {
                             NavigationBar {
                                 tabs.filter { it.visible }.forEach { tab ->
                                     NavigationBarItem(
-                                        selected = currentRoute == tab.route,
+                                        selected = selectedTab == tab.route,
                                         onClick = {
-                                            if (currentRoute != tab.route) {
-                                                navController.navigate(tab.route) {
-                                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
+                                            if (selectedTab != tab.route) {
+                                                selectedTab = tab.route
                                             }
                                         },
                                         icon = { Icon(tab.icon, contentDescription = tab.label) },

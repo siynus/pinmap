@@ -2,36 +2,27 @@ package com.sinus.pinmap.ui.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.sinus.pinmap.ui.screens.CategoryListScreen
 import com.sinus.pinmap.ui.screens.FieldTemplatesScreen
-import com.sinus.pinmap.ui.screens.MapScreen
 import com.sinus.pinmap.ui.screens.OfflineMapScreen
 import com.sinus.pinmap.ui.screens.PinEditScreen
-import com.sinus.pinmap.ui.screens.PinListScreen
 import com.sinus.pinmap.ui.screens.SettingsScreen
 
 @Composable
-fun PinmapNavGraph(
+fun SubPagesNavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.Map.mRoute,
-    modifier: Modifier = Modifier,
-    onOpenDrawer: () -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination,
+        startDestination = "empty",
         modifier = modifier,
         enterTransition = {
             slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(300))
@@ -46,29 +37,7 @@ fun PinmapNavGraph(
             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(300))
         }
     ) {
-        composable(Screen.Map.mRoute) {
-            val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
-            val focusLat by savedStateHandle?.getStateFlow<Double?>("focusLat", null)
-                ?.collectAsState() ?: remember { mutableStateOf(null) }
-            val focusLng by savedStateHandle?.getStateFlow<Double?>("focusLng", null)
-                ?.collectAsState() ?: remember { mutableStateOf(null) }
-            LaunchedEffect(focusLat, focusLng) {
-                if (focusLat != null && focusLng != null) {
-                    savedStateHandle?.remove<Double>("focusLat")
-                    savedStateHandle?.remove<Double>("focusLng")
-                }
-            }
-            MapScreen(
-                onNavigateToEdit = { pinId ->
-                    navController.navigate(Screen.PinEdit.createRoute(pinId))
-                },
-                onNavigateToCreate = { lat, lng ->
-                    navController.navigate(Screen.PinEdit.createRoute(null, lat, lng))
-                },
-                focusLat = focusLat,
-                focusLng = focusLng
-            )
-        }
+        composable("empty") { Box(Modifier) }
 
         composable(
             route = Screen.PinEdit.mRoute,
@@ -103,22 +72,6 @@ fun PinmapNavGraph(
             FieldTemplatesScreen(
                 categoryId = categoryId,
                 onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Screen.PinList.mRoute) {
-            PinListScreen(
-                onPinClick = { pinId ->
-                    navController.navigate(Screen.PinEdit.createRoute(pinId))
-                }
-            )
-        }
-
-        composable(Screen.CategoryList.mRoute) {
-            CategoryListScreen(
-                onNavigateToFieldTemplates = { categoryId ->
-                    navController.navigate(Screen.FieldTemplates.createRoute(categoryId))
-                }
             )
         }
 
