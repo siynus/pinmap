@@ -42,7 +42,7 @@ fun CategoryListScreen(
     val categoryRepository = remember { CategoryRepository(database.categoryStore()) }
     val viewModel: CategoryViewModel = viewModel { CategoryViewModel(categoryRepository) }
 
-    val categories by viewModel.categories.collectAsState()
+    val categories by viewModel._categories.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var categoryToDelete by remember { mutableStateOf<Category?>(null) }

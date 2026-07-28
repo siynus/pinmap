@@ -98,7 +98,7 @@ fun MapScreen(
         viewModel { MapViewModel(pinRepository, fieldTemplateRepository, fieldValueRepository) }
     val mapHolder: MapHolderViewModel = viewModel()
 
-    val pins by viewModel.pins.collectAsState()
+    val pins by viewModel._pins.collectAsState()
     val categories by categoryRepository.getAllCategories().collectAsState(initial = emptyList())
     var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
     val filteredPins by remember(pins, selectedCategoryId) {
@@ -269,7 +269,7 @@ fun MapScreen(
 
     LaunchedEffect(focusLat, focusLng) {
         if (focusLat != null && focusLng != null) {
-            mapHolder.aMap?.moveCamera(
+            mapHolder._aMap?.moveCamera(
                 CameraUpdateFactory.newLatLngZoom(
                     com.amap.api.maps.model.LatLng(focusLat, focusLng), 15f
                 )
@@ -299,8 +299,8 @@ fun MapScreen(
         )
 
         // 设置地图事件监听
-        LaunchedEffect(mapHolder.aMap) {
-            val aMap = mapHolder.aMap ?: return@LaunchedEffect
+        LaunchedEffect(mapHolder._aMap) {
+            val aMap = mapHolder._aMap ?: return@LaunchedEffect
 
             // 设置地图点击事件（用于取消选择）
             aMap.setOnMapClickListener { _ ->
@@ -424,7 +424,7 @@ fun MapScreen(
                                         .padding(8.dp)
                                         .clickable {
                                             scope.launch {
-                                                val aMap = mapHolder.aMap ?: return@launch
+                                                val aMap = mapHolder._aMap ?: return@launch
                                                 highlightedPinId = pin.id
                                                 aMap.animateCamera(
                                                     CameraUpdateFactory.newLatLngZoom(
@@ -474,7 +474,7 @@ fun MapScreen(
                                         .fillMaxWidth()
                                         .padding(8.dp)
                                         .clickable {
-                                            val aMap = mapHolder.aMap ?: return@clickable
+                                            val aMap = mapHolder._aMap ?: return@clickable
                                             poiHighlightLat = poi.latLonPoint.latitude
                                             poiHighlightLng = poi.latLonPoint.longitude
                                             aMap.animateCamera(
@@ -548,7 +548,7 @@ fun MapScreen(
                                 if (searchResults.isNotEmpty()) {
                                     scope.launch {
                                         val pin = searchResults.first()
-                                        val aMap = mapHolder.aMap ?: return@launch
+                                        val aMap = mapHolder._aMap ?: return@launch
                                         val latLng = LatLng(pin.latitude, pin.longitude)
                                         aMap.animateCamera(
                                             CameraUpdateFactory.newLatLngZoom(
@@ -642,7 +642,7 @@ fun MapScreen(
                         if (locationResult.isSuccess) {
                             val location = locationResult.getOrNull()
                             if (location != null) {
-                                val aMap = mapHolder.aMap ?: return@launch
+                                val aMap = mapHolder._aMap ?: return@launch
 
                                 // 移除旧的当前位置标记
                                 myLocationMarker?.remove()
@@ -674,7 +674,7 @@ fun MapScreen(
 
         // 监听 pins 变化，更新地图标记
         LaunchedEffect(filteredPins, categories, highlightedPinId) {
-            val aMap = mapHolder.aMap ?: return@LaunchedEffect
+            val aMap = mapHolder._aMap ?: return@LaunchedEffect
             if (isDragging) {
                 return@LaunchedEffect
             }
@@ -801,7 +801,7 @@ fun MapScreen(
 
     // POI 地址搜索结果高亮
     LaunchedEffect(poiHighlightLat, poiHighlightLng) {
-        val aMap = mapHolder.aMap ?: return@LaunchedEffect
+        val aMap = mapHolder._aMap ?: return@LaunchedEffect
         if (poiHighlightLat != 0.0 || poiHighlightLng != 0.0) {
             aMap.addMarker(
                 MarkerOptions()

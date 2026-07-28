@@ -7,41 +7,41 @@ import com.amap.api.maps.MapView
 
 class MapHolderViewModel : ViewModel() {
 
-    private var _mapView: MapView? = null
-    val mapView: MapView get() = _mapView ?: error("MapView not initialized")
+    private var mMapView: MapView? = null
+    val _mapView: MapView get() = mMapView ?: error("MapView not initialized")
 
-    private var _aMap: AMap? = null
-    val aMap: AMap? get() = _aMap
+    private var mAMap: AMap? = null
+    val _aMap: AMap? get() = mAMap
 
-    private var _isInitialized = false
-    val isInitialized: Boolean get() = _isInitialized
+    private var mIsInitialized = false
+    val _isInitialized: Boolean get() = mIsInitialized
 
     fun init(context: Context): MapView {
-        val mv = _mapView
+        val mv = mMapView
         if (mv != null) {
             return mv
         }
         return MapView(context).apply {
             onCreate(null)
-            _mapView = this
+            mMapView = this
         }
     }
 
     fun setAMap(map: AMap) {
-        _aMap = map
+        mAMap = map
     }
 
     fun markInitialized() {
-        _isInitialized = true
+        mIsInitialized = true
     }
 
     override fun onCleared() {
         try {
-            _mapView?.onPause()
-            _mapView?.onDestroy()
+            mMapView?.onPause()
+            mMapView?.onDestroy()
         } catch (_: Exception) { }
-        _mapView = null
-        _aMap = null
+        mMapView = null
+        mAMap = null
         super.onCleared()
     }
 }

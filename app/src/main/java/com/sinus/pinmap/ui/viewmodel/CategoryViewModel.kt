@@ -13,8 +13,8 @@ class CategoryViewModel(
     private val mCategoryRepository: CategoryRepository
 ) : ViewModel() {
 
-    private val _categories = MutableStateFlow<List<Category>>(emptyList())
-    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
+    private val mCategories = MutableStateFlow<List<Category>>(emptyList())
+    val _categories: StateFlow<List<Category>> = mCategories.asStateFlow()
 
     init {
         loadCategories()
@@ -23,7 +23,7 @@ class CategoryViewModel(
     private fun loadCategories() {
         viewModelScope.launch {
             mCategoryRepository.getAllCategories().collect { categoryList ->
-                _categories.value = categoryList
+                mCategories.value = categoryList
             }
         }
     }

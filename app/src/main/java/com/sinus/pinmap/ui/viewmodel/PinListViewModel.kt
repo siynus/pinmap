@@ -19,31 +19,31 @@ class PinListViewModel(
     private val mCategoryRepository: CategoryRepository
 ) : ViewModel() {
 
-    private val _pins = MutableStateFlow<List<Pin>>(emptyList())
-    val pins: StateFlow<List<Pin>> = _pins.asStateFlow()
+    private val mPins = MutableStateFlow<List<Pin>>(emptyList())
+    val _pins: StateFlow<List<Pin>> = mPins.asStateFlow()
 
-    private val _categories = MutableStateFlow<List<Category>>(emptyList())
-    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
+    private val mCategories = MutableStateFlow<List<Category>>(emptyList())
+    val _categories: StateFlow<List<Category>> = mCategories.asStateFlow()
 
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    private val mSearchQuery = MutableStateFlow("")
+    val _searchQuery: StateFlow<String> = mSearchQuery.asStateFlow()
 
-    private val _selectedCategoryId = MutableStateFlow<Long?>(null)
-    val selectedCategoryId: StateFlow<Long?> = _selectedCategoryId.asStateFlow()
+    private val mSelectedCategoryId = MutableStateFlow<Long?>(null)
+    val _selectedCategoryId: StateFlow<Long?> = mSelectedCategoryId.asStateFlow()
 
-    private val _sortMode = MutableStateFlow(SortMode.CREATED_DESC)
-    val sortMode: StateFlow<SortMode> = _sortMode.asStateFlow()
+    private val mSortMode = MutableStateFlow(SortMode.CREATED_DESC)
+    val _sortMode: StateFlow<SortMode> = mSortMode.asStateFlow()
 
-    private var _currentLat = 39.9042
-    private var _currentLng = 116.4074
-    val currentLat: Double get() = _currentLat
-    val currentLng: Double get() = _currentLng
+    private var mCurrentLat = 39.9042
+    private var mCurrentLng = 116.4074
+    val _currentLat: Double get() = mCurrentLat
+    val _currentLng: Double get() = mCurrentLng
 
     val filteredPins: StateFlow<List<Pin>> = combine(
-        _pins,
-        _searchQuery,
-        _selectedCategoryId,
-        _sortMode
+        mPins,
+        mSearchQuery,
+        mSelectedCategoryId,
+        mSortMode
     ) { pins, query, categoryId, sort ->
         var result = pins
 
@@ -58,8 +58,8 @@ class PinListViewModel(
             }
         }
 
-        val lat = _currentLat
-        val lng = _currentLng
+        val lat = mCurrentLat
+        val lng = mCurrentLng
         when (sort) {
             SortMode.NAME_ASC -> result = result.sortedBy { it.title }
             SortMode.NAME_DESC -> result = result.sortedByDescending { it.title }
@@ -85,7 +85,7 @@ class PinListViewModel(
     private fun loadPins() {
         viewModelScope.launch {
             mPinRepository.getAllPins().collect { pinList ->
-                _pins.value = pinList
+                mPins.value = pinList
             }
         }
     }
@@ -93,26 +93,26 @@ class PinListViewModel(
     private fun loadCategories() {
         viewModelScope.launch {
             mCategoryRepository.getAllCategories().collect { categoryList ->
-                _categories.value = categoryList
+                mCategories.value = categoryList
             }
         }
     }
 
     fun setSearchQuery(query: String) {
-        _searchQuery.value = query
+        mSearchQuery.value = query
     }
 
     fun setSelectedCategory(categoryId: Long?) {
-        _selectedCategoryId.value = categoryId
+        mSelectedCategoryId.value = categoryId
     }
 
     fun setSortMode(mode: SortMode) {
-        _sortMode.value = mode
+        mSortMode.value = mode
     }
 
     fun setCurrentLocation(lat: Double, lng: Double) {
-        _currentLat = lat
-        _currentLng = lng
+        mCurrentLat = lat
+        mCurrentLng = lng
     }
 
     fun deletePin(pin: Pin) {

@@ -20,11 +20,11 @@ class MapViewModel(
     private val mFieldValueRepository: FieldValueRepository
 ) : ViewModel() {
 
-    private val _pins = MutableStateFlow<List<Pin>>(emptyList())
-    val pins: StateFlow<List<Pin>> = _pins.asStateFlow()
+    private val mPins = MutableStateFlow<List<Pin>>(emptyList())
+    val _pins: StateFlow<List<Pin>> = mPins.asStateFlow()
 
-    private val _selectedPin = MutableStateFlow<Pin?>(null)
-    val selectedPin: StateFlow<Pin?> = _selectedPin.asStateFlow()
+    private val mSelectedPin = MutableStateFlow<Pin?>(null)
+    val _selectedPin: StateFlow<Pin?> = mSelectedPin.asStateFlow()
 
     init {
         loadPins()
@@ -33,17 +33,17 @@ class MapViewModel(
     private fun loadPins() {
         viewModelScope.launch {
             mPinRepository.getAllPins().collect { pinList ->
-                _pins.value = pinList
+                mPins.value = pinList
             }
         }
     }
 
     fun selectPin(pin: Pin) {
-        _selectedPin.value = pin
+        mSelectedPin.value = pin
     }
 
     fun clearSelectedPin() {
-        _selectedPin.value = null
+        mSelectedPin.value = null
     }
 
     suspend fun getPinById(pinId: Long): Pin? {
