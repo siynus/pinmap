@@ -168,6 +168,7 @@ fun MapScreen(
     var myLocationMarker by remember { mutableStateOf<Marker?>(null) }
     var markerMap by remember { mutableStateOf<Map<Long, Marker>>(emptyMap()) }
     var viewerPin by remember { mutableStateOf<Pin?>(null) }
+    var dragMarker by remember { mutableStateOf<Marker?>(null) }
     var highlightedPinId by remember { mutableStateOf<Long?>(null) }
     var poiHighlightLat by remember { mutableDoubleStateOf(0.0) }
     var poiHighlightLng by remember { mutableDoubleStateOf(0.0) }
@@ -329,46 +330,71 @@ fun MapScreen(
                 true
             }
 
-            // 设置标记拖拽事件
-            aMap.setOnMarkerDragListener(object : com.amap.api.maps.AMap.OnMarkerDragListener {
-                override fun onMarkerDragStart(marker: com.amap.api.maps.model.Marker?) {
-                    isDragging = true
-                }
-                override fun onMarkerDrag(marker: com.amap.api.maps.model.Marker?) {}
-                override fun onMarkerDragEnd(marker: com.amap.api.maps.model.Marker?) {
-                    val id = marker?.snippet?.toLongOrNull() ?: return
-                    val pos = marker.position
-                    scope.launch {
-                        pinRepository.getPinById(id)?.let { pin ->
-                            val address = try {
-                                kotlinx.coroutines.suspendCancellableCoroutine<String?> { cont ->
-                                    val search = com.amap.api.services.geocoder.GeocodeSearch(context)
-                                    search.setOnGeocodeSearchListener(object : com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener {
-                                        override fun onRegeocodeSearched(res: com.amap.api.services.geocoder.RegeocodeResult?, code: Int) {
-                                            cont.resume(if (code == 1000 && res != null) res.regeocodeAddress.formatAddress else null, null)
+            // 标记拖拽：触摸即拖，无需长按
+            aMap.setOnMapTouchListener { event ->
+                val projection = aMap.projection ?: return@setOnMapTouchListener
+                when (event.action) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        val tx = event.x
+                        val ty = event.y
+                        val hitMarker = markerMap.values.firstOrNull { m ->
+                            val p = projection.toScreenLocation(m.position)
+                            val dx = tx - p.x
+                            val dy = ty - p.y
+                            dx * dx + dy * dy < 40f * 40f * density.density * density.density
+                        }
+                        if (hitMarker != null) {
+                            dragMarker = hitMarker
+                            isDragging = true
+                            aMap.uiSettings.isScrollGesturesEnabled = false
+                        }
+                    }
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        if (dragMarker != null) {
+                            val point = android.graphics.Point(event.x.toInt(), event.y.toInt())
+                            dragMarker?.position = projection.fromScreenLocation(point)
+                        }
+                    }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                        val marker = dragMarker
+                        if (marker != null) {
+                            dragMarker = null
+                            aMap.uiSettings.isScrollGesturesEnabled = true
+                            val id = marker.snippet?.toLongOrNull() ?: return@setOnMapTouchListener
+                            val pos = marker.position
+                            scope.launch {
+                                pinRepository.getPinById(id)?.let { pin ->
+                                    val address = try {
+                                        kotlinx.coroutines.suspendCancellableCoroutine<String?> { cont ->
+                                            val search = com.amap.api.services.geocoder.GeocodeSearch(context)
+                                            search.setOnGeocodeSearchListener(object : com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener {
+                                                override fun onRegeocodeSearched(res: com.amap.api.services.geocoder.RegeocodeResult?, code: Int) {
+                                                    cont.resume(if (code == 1000 && res != null) res.regeocodeAddress.formatAddress else null, null)
+                                                }
+                                                override fun onGeocodeSearched(res: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
+                                            })
+                                            search.getFromLocationAsyn(
+                                                com.amap.api.services.geocoder.RegeocodeQuery(
+                                                    com.amap.api.services.core.LatLonPoint(pos.latitude, pos.longitude),
+                                                    200f, com.amap.api.services.geocoder.GeocodeSearch.AMAP
+                                                )
+                                            )
                                         }
-                                        override fun onGeocodeSearched(res: com.amap.api.services.geocoder.GeocodeResult?, code: Int) {}
-                                    })
-                                    search.getFromLocationAsyn(
-                                        com.amap.api.services.geocoder.RegeocodeQuery(
-                                            com.amap.api.services.core.LatLonPoint(pos.latitude, pos.longitude),
-                                            200f, com.amap.api.services.geocoder.GeocodeSearch.AMAP
+                                    } catch (_: Exception) { null }
+                                    pinRepository.updatePin(
+                                        pin.copy(
+                                            latitude = pos.latitude,
+                                            longitude = pos.longitude,
+                                            address = address ?: pin.address
                                         )
                                     )
                                 }
-                            } catch (_: Exception) { null }
-                            pinRepository.updatePin(
-                                pin.copy(
-                                    latitude = pos.latitude,
-                                    longitude = pos.longitude,
-                                    address = address ?: pin.address
-                                )
-                            )
+                            }
+                            isDragging = false
                         }
                     }
-                    isDragging = false
                 }
-            })
+            }
 
             // 监听地图移动，保存位置
             aMap.setOnCameraChangeListener(object : com.amap.api.maps.AMap.OnCameraChangeListener {
@@ -792,7 +818,7 @@ fun MapScreen(
                     .position(LatLng(pin.latitude, pin.longitude))
                     .icon(markerIcon)
                     .snippet(pin.id.toString())
-                    .draggable(true)
+                    .draggable(false)
                     .anchor(0.5f, 1.0f)
 
                 val marker = aMap.addMarker(markerOptions)
