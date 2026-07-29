@@ -67,24 +67,23 @@ fun FieldTemplatesScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
                 },
                 actions = {
+                    var exportProgress by remember { mutableStateOf(0f) }
                     IconButton(onClick = {
                         scope.launch {
                             val cat = categoryRepo.getCategoryById(categoryId) ?: return@launch
-                            val templates = templateRepo.getFieldTemplatesByCategory(categoryId).first()
-                            val pins = pinRepo.getPinsByCategory(categoryId).first()
-                            val allValues = pins.associate { pin ->
-                                pin.id to valueRepo.getFieldValuesByPin(pin.id).first()
+                            withContext(Dispatchers.IO) {
+                                PinExporter.exportByCategory(context, database, categoryId,
+                                    onProgress = { done, total -> exportProgress = done.toFloat() / total },
+                                    fileName = "export_category_${cat.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap"
+                                )
+                            }.let { uri ->
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "application/octet-stream"
+                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
                             }
-                            val uri = withContext(Dispatchers.IO) {
-                                PinExporter.export(context, listOf(cat), templates, pins, allValues,
-                                "export_category_${cat.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap")
-                            }
-                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "application/octet-stream"
-                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
                         }
                     }) {
                         Icon(Icons.Default.Share, contentDescription = "导出本分类标记")

@@ -82,6 +82,7 @@ import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
+import com.sinus.pinmap.ui.utils.PinExporter
 import com.amap.api.services.core.PoiItemV2
 import com.amap.api.services.core.LatLonPoint
 import com.amap.api.services.geocoder.GeocodeSearch
@@ -332,25 +333,22 @@ fun PinEditScreen(
                 },
                 actions = {
                     if (!isCreate) {
+                        var exportProgress by remember { mutableStateOf(0f) }
                         IconButton(onClick = {
                             scope.launch {
-                                val cat = selectedCategory
-                                val templates = templateRepo.getFieldTemplatesByCategory(cat?.id ?: return@launch).first()
-                                val values = valueRepo.getFieldValuesByPin(pinId).first()
-                                val uri = withContext(Dispatchers.IO) {
-                                    com.sinus.pinmap.ui.utils.PinExporter.export(
-                                    context, if (cat != null) listOf(cat) else emptyList(),
-                                    templates, pinRepository.getPinById(pinId)?.let { listOf(it) } ?: emptyList(),
-                                    mapOf(pinId to values),
-                                    "export_pin_${title.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap"
-                                )
+                                withContext(Dispatchers.IO) {
+                                    PinExporter.exportByPin(context, database, pinId,
+                                        onProgress = { done, total -> exportProgress = done.toFloat() / total },
+                                        fileName = "export_pin_${title.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap"
+                                    )
+                                }.let { uri ->
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "application/octet-stream"
+                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
                                 }
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "application/octet-stream"
-                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
                             }
                         }) {
                             Icon(Icons.Default.Share, contentDescription = "导出标记")

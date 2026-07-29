@@ -1,23 +1,19 @@
 package com.sinus.pinmap.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
 import com.sinus.pinmap.data.database.PinmapDatabase
-import com.sinus.pinmap.data.repository.CategoryRepository
-import com.sinus.pinmap.data.repository.FieldValueRepository
-import com.sinus.pinmap.data.repository.PinRepository
-import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.ui.utils.AuthState
 import com.sinus.pinmap.ui.utils.PinExporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -29,13 +25,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val database = remember { PinmapDatabase.getDatabase(context) }
-    val pinRepo = remember { PinRepository(database.pinStore()) }
-    val categoryRepo = remember { CategoryRepository(database.categoryStore()) }
-    val templateRepo = remember { FieldTemplateRepository(database.fieldTemplateStore()) }
-    val valueRepo = remember { FieldValueRepository(database.fieldValueStore()) }
 
     val currentKey = remember { AuthState.getSavedKey() ?: "" }
     var isExporting by remember { mutableStateOf(false) }
+    var exportProgress by remember { mutableStateOf(0f) }
 
     Column(
         modifier = modifier
@@ -72,21 +65,27 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
         Text("数据管理", style = MaterialTheme.typography.titleLarge)
 
+        if (isExporting) {
+            LinearProgressIndicator(
+                progress = { exportProgress },
+                modifier = Modifier.fillMaxWidth().height(6.dp)
+            )
+            Text("正在导出...", style = MaterialTheme.typography.bodySmall)
+        }
+
         Button(
             onClick = {
                 if (!isExporting) {
                     isExporting = true
+                    exportProgress = 0f
                     scope.launch {
                         try {
-                            val cats = categoryRepo.getAllCategories().first()
-                            val templates = templateRepo.getAllFieldTemplates().first()
-                            val pins = pinRepo.getAllPins().first()
-                            val allValues = pins.associate { pin ->
-                                pin.id to valueRepo.getFieldValuesByPin(pin.id).first()
-                            }
                             val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                             val uri = withContext(Dispatchers.IO) {
-                                PinExporter.export(context, cats, templates, pins, allValues, "export_$dateStr.pinmap")
+                                PinExporter.exportAll(context, database,
+                                    onProgress = { done, total -> exportProgress = done.toFloat() / total },
+                                    fileName = "export_$dateStr.pinmap"
+                                )
                             }
                             val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                 type = "application/octet-stream"
@@ -101,12 +100,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             },
             enabled = !isExporting,
             modifier = Modifier.fillMaxWidth()
-        ) {
-            if (isExporting) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(8.dp))
-            }
-            Text("导出全部标记")
-        }
+        ) { Text("导出全部标记") }
     }
 }
