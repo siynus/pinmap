@@ -25,8 +25,10 @@ import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.ui.utils.PinExporter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.zIndex
 import com.sinus.pinmap.data.entity.FieldTemplate
 
@@ -73,8 +75,10 @@ fun FieldTemplatesScreen(
                             val allValues = pins.associate { pin ->
                                 pin.id to valueRepo.getFieldValuesByPin(pin.id).first()
                             }
-                            val uri = PinExporter.export(context, listOf(cat), templates, pins, allValues,
+                            val uri = withContext(Dispatchers.IO) {
+                                PinExporter.export(context, listOf(cat), templates, pins, allValues,
                                 "export_category_${cat.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap")
+                            }
                             val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                 type = "application/octet-stream"
                                 putExtra(android.content.Intent.EXTRA_STREAM, uri)

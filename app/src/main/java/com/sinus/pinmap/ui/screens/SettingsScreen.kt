@@ -15,8 +15,10 @@ import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.ui.utils.AuthState
 import com.sinus.pinmap.ui.utils.PinExporter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,7 +85,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                 pin.id to valueRepo.getFieldValuesByPin(pin.id).first()
                             }
                             val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                            val uri = PinExporter.export(context, cats, templates, pins, allValues, "export_$dateStr.pinmap")
+                            val uri = withContext(Dispatchers.IO) {
+                                PinExporter.export(context, cats, templates, pins, allValues, "export_$dateStr.pinmap")
+                            }
                             val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                 type = "application/octet-stream"
                                 putExtra(android.content.Intent.EXTRA_STREAM, uri)
