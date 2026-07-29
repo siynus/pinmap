@@ -27,6 +27,7 @@ import com.sinus.pinmap.ui.navigation.SubPagesNavGraph
 import com.sinus.pinmap.ui.screens.CategoryListScreen
 import com.sinus.pinmap.ui.screens.MapScreen
 import com.sinus.pinmap.ui.screens.PinListScreen
+import com.sinus.pinmap.ui.screens.SettingsScreen
 import com.sinus.pinmap.ui.theme.PinmapTheme
 import kotlinx.coroutines.launch
 
@@ -98,6 +99,7 @@ class MainActivity : ComponentActivity() {
                                             TAB_MAP -> "地图"
                                             TAB_PIN_LIST -> "标记列表"
                                             TAB_CATEGORY_LIST -> "分类管理"
+                                            TAB_SETTINGS -> "设置"
                                             else -> "Pinmap"
                                         }
                                     )
@@ -131,6 +133,9 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToFieldTemplates = { categoryId ->
                                     navController.navigate(Screen.FieldTemplates.createRoute(categoryId))
                                 }
+                            )
+                            SettingsScreen(
+                                modifier = Modifier.fillMaxSize().visible(selectedTabIndex == TAB_SETTINGS)
                             )
 
                             if (!isTabScreen) {
@@ -168,3 +173,4 @@ private data class TabItem(val label: String, val icon: ImageVector, val route: 
 private const val TAB_MAP = 0
 private const val TAB_PIN_LIST = 1
 private const val TAB_CATEGORY_LIST = 2
+private const val TAB_SETTINGS = 3
