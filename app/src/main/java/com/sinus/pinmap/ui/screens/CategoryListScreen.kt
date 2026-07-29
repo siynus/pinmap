@@ -28,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.repository.CategoryRepository
+import com.sinus.pinmap.ui.theme.CategoryPresetColors
 import com.sinus.pinmap.ui.viewmodel.CategoryViewModel
 import kotlin.math.roundToInt
 
@@ -141,7 +142,7 @@ fun CategoryListScreen(
 
     categoryToEdit?.let { category ->
         var editName by remember { mutableStateOf(category.name) }
-        var editColor by remember { mutableStateOf(presetColors.find { it.hashCode() == category.color } ?: presetColors[0]) }
+        var editColor by remember { mutableStateOf(CategoryPresetColors.find { it.hashCode() == category.color } ?: CategoryPresetColors[0]) }
 
         Dialog(onDismissRequest = { categoryToEdit = null }) {
             Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -156,7 +157,7 @@ fun CategoryListScreen(
                     Text("选择颜色", style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Column {
-                        presetColors.chunked(4).forEach { rowColors ->
+                        CategoryPresetColors.chunked(4).forEach { rowColors ->
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 rowColors.forEach { color ->
                                     Box(
@@ -209,9 +210,3 @@ fun CategoryListScreen(
         )
     }
 }
-
-private val presetColors = listOf(
-    Color(0xFFEF5350), Color(0xFFEC407A), Color(0xFFAB47BC), Color(0xFF7E57C2),
-    Color(0xFF5C6BC0), Color(0xFF42A5F5), Color(0xFF26C6DA), Color(0xFF26A69A),
-    Color(0xFF66BB6A), Color(0xFF9CCC65), Color(0xFFFFA726), Color(0xFFFF7043),
-)

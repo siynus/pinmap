@@ -101,6 +101,16 @@ private val THUMBNAIL_SIZE = 120.dp
 private val POPUP_MAX_WIDTH = 180.dp
 private val AVATAR_SIZE = 64.dp
 private val ICON_SIZE_48 = 48.dp
+private val ICON_SIZE_32 = 32.dp
+private val DELETE_BUTTON_SIZE = 24.dp
+private const val LONG_PRESS_DELAY_MS = 500L
+private const val DRAG_THRESHOLD_SQ = 50f
+private const val POPUP_WIDTH_PX = 180f
+private const val POPUP_HEIGHT_PX = 96f
+private const val PIN_PAGER_MULTIPLIER = 2001
+private const val PIN_PAGER_INITIAL = 1000
+private const val ZOOM_MIN = 1f
+private const val ZOOM_MAX = 5f
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -306,7 +316,7 @@ fun PinEditScreen(
                 }
             }
             Box(modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(ICON_SIZE_32), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -342,7 +352,7 @@ fun PinEditScreen(
                             if (avatarUri != null) {
                                 Image(painter = coil.compose.rememberAsyncImagePainter(avatarUri), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                             } else {
-                                Icon(Icons.Default.Person, contentDescription = "设置头像", modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Default.Person, contentDescription = "设置头像", modifier = Modifier.size(ICON_SIZE_32), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         if (avatarUri != null) {
@@ -438,7 +448,7 @@ fun PinEditScreen(
                             categories.forEach { category ->
                                 DropdownMenuItem(
                                     text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        Box(modifier = Modifier.size(24.dp).background(Color(category.color), CircleShape))
+                                        Box(modifier = Modifier.size(DELETE_BUTTON_SIZE).background(Color(category.color), CircleShape))
                                         Text(category.name)
                                     }},
                                     onClick = { selectedCategory = category; expanded = false; markDirty() },
@@ -500,7 +510,7 @@ fun PinEditScreen(
                                                 )
                                             ) {
                                                 Image(painter = coil.compose.rememberAsyncImagePainter(img), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                                Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
+                                                Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(DELETE_BUTTON_SIZE).clickable {
                                                     editingImages = editingImages + (template.id to (images - img)); markDirty()
                                                 }) { Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.padding(4.dp)) }
                                             }
@@ -541,7 +551,7 @@ fun PinEditScreen(
                                             ) {
                                                 VideoThumbnail(videoUri = video, modifier = Modifier.fillMaxSize())
                                                 Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.surface,                         modifier = Modifier.align(Alignment.Center).size(ICON_SIZE_48))
-                                                Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp).clickable {
+                                                Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(DELETE_BUTTON_SIZE).clickable {
                                                     editingImages = editingImages + (template.id to (videos - video)); markDirty()
                                                 }) { Icon(Icons.Default.Close, contentDescription = "删除", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.padding(4.dp)) }
                                             }
@@ -691,8 +701,8 @@ fun PinEditScreen(
     if (viewerImages.isNotEmpty()) {
         val images = viewerImages
         val startIndex = viewerStartIndex.coerceIn(0, images.size - 1)
-        val totalPages = images.size * 2001
-        val initialOffset = images.size * 1000
+        val totalPages = images.size * PIN_PAGER_MULTIPLIER
+        val initialOffset = images.size * PIN_PAGER_INITIAL
         val pagerState = rememberPagerState(
             initialPage = startIndex + initialOffset,
             pageCount = { totalPages }
@@ -707,7 +717,7 @@ fun PinEditScreen(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val imageUrl = images[page % images.size]
-                    var scale by remember { mutableFloatStateOf(1f) }
+                    var scale by remember { mutableFloatStateOf(ZOOM_MIN) }
                     var offsetX by remember { mutableFloatStateOf(0f) }
                     var offsetY by remember { mutableFloatStateOf(0f) }
                     val haptic = LocalHapticFeedback.current
@@ -722,7 +732,7 @@ fun PinEditScreen(
                                     var moved = false
                                     var longPressed = false
                                     val longPressJob = scope.launch {
-                                        delay(500L)
+                                        delay(LONG_PRESS_DELAY_MS)
                                         menuUrl = imageUrl
                                         menuPosX = down.position.x
                                         menuPosY = down.position.y
@@ -741,7 +751,7 @@ fun PinEditScreen(
                                             val currDist = (ch[0].position - ch[1].position).getDistance()
                                             val prevDist = (ch[0].previousPosition - ch[1].previousPosition).getDistance()
                                             val zoom = if (prevDist > 0f) currDist / prevDist else 1f
-                                            scale = (scale * zoom).coerceIn(1f, 5f)
+                                            scale = (scale * zoom).coerceIn(ZOOM_MIN, ZOOM_MAX)
                                             val cx = ch.fold(0f) { a, c -> a + c.position.x } / ch.size
                                             val cy = ch.fold(0f) { a, c -> a + c.position.y } / ch.size
                                             val pcx = ch.fold(0f) { a, c -> a + c.previousPosition.x } / ch.size
@@ -751,7 +761,7 @@ fun PinEditScreen(
                                         } else if (event.type == PointerEventType.Move) {
                                             val dx = event.changes[0].position.x - event.changes[0].previousPosition.x
                                             val dy = event.changes[0].position.y - event.changes[0].previousPosition.y
-                                            if (dx * dx + dy * dy > 50f) {
+                                            if (dx * dx + dy * dy > DRAG_THRESHOLD_SQ) {
                                                 moved = true
                                                 longPressJob.cancel()
                                             }
@@ -782,8 +792,8 @@ fun PinEditScreen(
             }
             menuUrl?.let { url ->
                 val d = LocalDensity.current.density
-                val pw = (180f * d).roundToInt()
-                val ph = (96f * d).roundToInt()
+                val pw = (POPUP_WIDTH_PX * d).roundToInt()
+                val ph = (POPUP_HEIGHT_PX * d).roundToInt()
                 val sw = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }.roundToInt()
                 val sh = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }.roundToInt()
                 val x = menuPosX.roundToInt().coerceIn(0, sw - pw)
@@ -822,8 +832,8 @@ fun PinEditScreen(
     }
     menuUrl?.let { url ->
         val d = LocalDensity.current.density
-        val pw = (180f * d).roundToInt()
-        val ph = (96f * d).roundToInt()
+        val pw = (POPUP_WIDTH_PX * d).roundToInt()
+        val ph = (POPUP_HEIGHT_PX * d).roundToInt()
         val sw = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }.roundToInt()
         val sh = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }.roundToInt()
         val x = menuPosX.roundToInt().coerceIn(0, sw - pw)

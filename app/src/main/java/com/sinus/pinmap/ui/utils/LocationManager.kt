@@ -27,8 +27,11 @@ class LocationManager(private val mContext: Context) {
         private const val KEY_LAST_LATITUDE = "last_latitude"
         private const val KEY_LAST_LONGITUDE = "last_longitude"
         private const val KEY_LAST_ZOOM = "last_zoom"
+        private const val LOCATION_TIMEOUT_MS = 10000L
 
-        // 默认位置：中国中心
+        // 默认位置：北京
+        const val DEFAULT_LATITUDE = 39.9042
+        const val DEFAULT_LONGITUDE = 116.4074
         val mDefaultLocation = LatLng(35.8617, 104.1954)
         const val DEFAULT_ZOOM = 4f
 
@@ -97,7 +100,7 @@ class LocationManager(private val mContext: Context) {
                     isOnceLocation = true
                     isNeedAddress = true  // 启用地址获取
                     isLocationCacheEnable = false
-                    httpTimeOut = 10000
+                    httpTimeOut = LOCATION_TIMEOUT_MS
                 }
             )
             setLocationListener(object : AMapLocationListener {
@@ -145,7 +148,7 @@ class LocationManager(private val mContext: Context) {
                     isOnceLocation = true
                     isNeedAddress = true
                     isLocationCacheEnable = false
-                    httpTimeOut = 10000
+                    httpTimeOut = LOCATION_TIMEOUT_MS
                 }
             )
             setLocationListener(object : AMapLocationListener {

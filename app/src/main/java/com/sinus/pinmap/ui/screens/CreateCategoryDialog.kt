@@ -15,23 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 
-/**
- * 预设颜色列表
- */
-private val presetColors = listOf(
-    Color(0xFFEF5350), // 红色
-    Color(0xFFEC407A), // 粉色
-    Color(0xFFAB47BC), // 紫色
-    Color(0xFF7E57C2), // 深紫色
-    Color(0xFF5C6BC0), // 靛蓝色
-    Color(0xFF42A5F5), // 蓝色
-    Color(0xFF26C6DA), // 青色
-    Color(0xFF26A69A), // 蓝绿色
-    Color(0xFF66BB6A), // 绿色
-    Color(0xFF9CCC65), // 浅绿色
-    Color(0xFFFFA726), // 橙色
-    Color(0xFFFF7043), // 深橙色
-)
+import com.sinus.pinmap.ui.theme.CategoryPresetColors
 
 /**
  * 创建分类对话框
@@ -42,7 +26,7 @@ fun CreateCategoryDialog(
     onDismiss: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableStateOf(presetColors[0]) }
+    var selectedColor by remember { mutableStateOf(CategoryPresetColors[0]) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -84,7 +68,7 @@ fun CreateCategoryDialog(
                 // 颜色网格
                 Column {
                     val columns = 4
-                    presetColors.chunked(columns).forEach { rowColors ->
+                    CategoryPresetColors.chunked(columns).forEach { rowColors ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)

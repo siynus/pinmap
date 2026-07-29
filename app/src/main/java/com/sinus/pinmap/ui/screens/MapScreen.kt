@@ -224,7 +224,7 @@ fun MapScreen(
 
             val (targetLocation, zoom) = if (locationResult.isSuccess) {
                 // 定位成功，使用当前位置
-                locationResult.getOrNull()!! to 15f
+                locationResult.getOrNull()!! to ZOOM_LOCATION
             } else {
                 // 定位失败，使用上次保存的位置
                 locationManager.getLastLocation()
@@ -271,7 +271,7 @@ fun MapScreen(
         if (focusLat != null && focusLng != null) {
             mapHolder._aMap?.moveCamera(
                 CameraUpdateFactory.newLatLngZoom(
-                    com.amap.api.maps.model.LatLng(focusLat, focusLng), 15f
+                    com.amap.api.maps.model.LatLng(focusLat, focusLng), ZOOM_LOCATION
                 )
             )
         }
@@ -431,7 +431,7 @@ fun MapScreen(
                                                         LatLng(
                                                             pin.latitude,
                                                             pin.longitude
-                                                        ), 16f
+                                                        ), ZOOM_SEARCH
                                                     )
                                                 )
                                                 showSearchResults = false; searchQuery =
@@ -482,7 +482,7 @@ fun MapScreen(
                                                     LatLng(
                                                         poi.latLonPoint.latitude,
                                                         poi.latLonPoint.longitude
-                                                    ), 16f
+                                                    ), ZOOM_SEARCH
                                                 )
                                             )
                                             showSearchResults = false; searchQuery =
@@ -553,7 +553,7 @@ fun MapScreen(
                                         aMap.animateCamera(
                                             CameraUpdateFactory.newLatLngZoom(
                                                 latLng,
-                                                16f
+                                                ZOOM_SEARCH
                                             )
                                         )
                                         showSearchResults = false
@@ -591,10 +591,10 @@ fun MapScreen(
             SmallFloatingActionButton(
                 onClick = { showCategoryFilter = true },
                 containerColor = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.size(30.dp)
+                shape = RoundedCornerShape(FAB_CORNER_RADIUS),
+                modifier = Modifier.size(FAB_SIZE)
             ) {
-                Icon(Icons.Default.Menu, contentDescription = "筛选分类", modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Menu, contentDescription = "筛选分类", modifier = Modifier.size(FAB_ICON_SIZE))
             }
             DropdownMenu(
                 expanded = showCategoryFilter,
@@ -660,7 +660,7 @@ fun MapScreen(
                                 myLocationMarker = marker
 
                                 // 移动地图到当前位置
-                                aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15f))
+                                aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, ZOOM_LOCATION))
                             }
                         }
                     }
@@ -669,11 +669,11 @@ fun MapScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = searchBottom + FAB_OFFSET)
-                .size(30.dp),
-            shape = RoundedCornerShape(10.dp),
+                .size(FAB_SIZE),
+            shape = RoundedCornerShape(FAB_CORNER_RADIUS),
             containerColor = MaterialTheme.colorScheme.surface
         ) {
-            Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置", modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置", modifier = Modifier.size(FAB_ICON_SIZE))
         }
 
         // 监听 pins 变化，更新地图标记
@@ -714,8 +714,8 @@ fun MapScreen(
                     }
                 }
 
-                val size = context.resources.displayMetrics.density.let { d -> (48 * d).toInt() }
-                val arrowH = (12 * context.resources.displayMetrics.density).toInt()
+                val size = context.resources.displayMetrics.density.let { d -> (MARKER_SIZE_PX * d).toInt() }
+                val arrowH = (ARROW_HEIGHT_PX * context.resources.displayMetrics.density).toInt()
                 val totalH = size + arrowH
                 val bubble = createBitmap(size, totalH)
                 val canvas = Canvas(bubble)
@@ -726,7 +726,7 @@ fun MapScreen(
                 if (avatarBitmap != null) {
                     val cx = size / 2f
                     val cy = size / 2f
-                    val r = size / 2f - 4f
+                    val r = size / 2f - PADDING_4F
                     val minDim = minOf(avatarBitmap.width, avatarBitmap.height)
                     val srcX = ((avatarBitmap.width - minDim) / 2f).toInt()
                     val srcY = ((avatarBitmap.height - minDim) / 2f).toInt()
@@ -739,20 +739,20 @@ fun MapScreen(
                     canvas.drawBitmap(avatarBitmap, srcRect, dstRect, null)
                     canvas.restore()
                     paint.style = Paint.Style.STROKE
-                    paint.strokeWidth = 3f
+                    paint.strokeWidth = STROKE_WIDTH_AVATAR
                     paint.color = COLOR_WHITE_INT
                     canvas.drawCircle(cx, cy, r, paint)
                     paint.style = Paint.Style.FILL
                 } else {
-                    val bodyB = totalH - arrowH - 4f
-                    val rect = android.graphics.RectF(4f, 4f, size - 4f, bodyB)
-                    canvas.drawRoundRect(rect, 16f, 16f, paint)
+                    val bodyB = totalH - arrowH - PADDING_4F
+                    val rect = android.graphics.RectF(PADDING_4F, PADDING_4F, size - PADDING_4F, bodyB)
+                    canvas.drawRoundRect(rect, CORNER_RADIUS_BODY, CORNER_RADIUS_BODY, paint)
                     val cx = size / 2f
                     val cy = bodyB / 2f
                     val r = bodyB / 2f - 8f
                     if (label.isNotEmpty()) {
                         paint.color = COLOR_WHITE_INT
-                        paint.textSize = r * 1.4f
+                        paint.textSize = r * TEXT_SIZE_MULTIPLIER
                         paint.textAlign = Paint.Align.CENTER
                         paint.typeface = Typeface.DEFAULT_BOLD
                         canvas.drawText(label, cx, cy + paint.textSize / 3, paint)
@@ -763,10 +763,10 @@ fun MapScreen(
                 paint.color = color
                 val cx = size / 2f
                 val arrowPath = android.graphics.Path().apply {
-                    val arrowTop = if (avatarBitmap != null) size - 4f else totalH - arrowH - 4f
-                    moveTo(cx - 10f, arrowTop)
-                    lineTo(cx + 10f, arrowTop)
-                    lineTo(cx, totalH - 4f)
+                    val arrowTop = if (avatarBitmap != null) size - PADDING_4F else totalH - arrowH - PADDING_4F
+                    moveTo(cx - ARROW_HALF_WIDTH, arrowTop)
+                    lineTo(cx + ARROW_HALF_WIDTH, arrowTop)
+                    lineTo(cx, totalH - PADDING_4F)
                     close()
                 }
                 canvas.drawPath(arrowPath, paint)
@@ -774,15 +774,15 @@ fun MapScreen(
                 // 高亮边框
                 if (pin.id == highlightedPinId) {
                     paint.style = Paint.Style.STROKE
-                    paint.strokeWidth = 4f
+                    paint.strokeWidth = STROKE_WIDTH_HIGHLIGHT
                     paint.color = HIGHLIGHT_RED
                     if (avatarBitmap != null) {
-                        val r = size / 2f - 4f
-                        canvas.drawCircle(size / 2f, size / 2f, r + 2f, paint)
+                        val r = size / 2f - PADDING_4F
+                        canvas.drawCircle(size / 2f, size / 2f, r + PADDING_2F, paint)
                     } else {
-                        val bodyB = totalH - arrowH - 4f
-                        val rect = android.graphics.RectF(2f, 2f, size - 2f, bodyB + 2f)
-                        canvas.drawRoundRect(rect, 14f, 14f, paint)
+                        val bodyB = totalH - arrowH - PADDING_4F
+                        val rect = android.graphics.RectF(PADDING_2F, PADDING_2F, size - PADDING_2F, bodyB + PADDING_2F)
+                        canvas.drawRoundRect(rect, CORNER_RADIUS_HIGHLIGHT, CORNER_RADIUS_HIGHLIGHT, paint)
                     }
                     paint.style = Paint.Style.FILL
                 }
@@ -860,3 +860,18 @@ private val HIGHLIGHT_RED = 0xFFFF4444.toInt()
 private val NAV_BAR_GAP = 80.dp
 private val FAB_OFFSET = 64.dp
 private val SEARCH_RESULT_MAX_HEIGHT = 290.dp
+private val FAB_SIZE = 30.dp
+private val FAB_ICON_SIZE = 18.dp
+private val FAB_CORNER_RADIUS = 10.dp
+private const val MARKER_SIZE_PX = 48
+private const val ARROW_HEIGHT_PX = 12
+private const val STROKE_WIDTH_AVATAR = 3f
+private const val STROKE_WIDTH_HIGHLIGHT = 4f
+private const val CORNER_RADIUS_BODY = 16f
+private const val CORNER_RADIUS_HIGHLIGHT = 14f
+private const val TEXT_SIZE_MULTIPLIER = 1.4f
+private const val ARROW_HALF_WIDTH = 10f
+private const val PADDING_4F = 4f
+private const val PADDING_2F = 2f
+private const val ZOOM_LOCATION = 15f
+private const val ZOOM_SEARCH = 16f

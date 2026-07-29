@@ -6,6 +6,7 @@ import com.sinus.pinmap.data.entity.Category
 import com.sinus.pinmap.data.entity.Pin
 import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.PinRepository
+import com.sinus.pinmap.ui.utils.LocationManager
 import com.sinus.pinmap.ui.utils.haversineDistance
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -34,8 +35,8 @@ class PinListViewModel(
     private val mSortMode = MutableStateFlow(SortMode.CREATED_DESC)
     val _sortMode: StateFlow<SortMode> = mSortMode.asStateFlow()
 
-    private var mCurrentLat = 39.9042
-    private var mCurrentLng = 116.4074
+    private var mCurrentLat = LocationManager.DEFAULT_LATITUDE
+    private var mCurrentLng = LocationManager.DEFAULT_LONGITUDE
     val _currentLat: Double get() = mCurrentLat
     val _currentLng: Double get() = mCurrentLng
 
