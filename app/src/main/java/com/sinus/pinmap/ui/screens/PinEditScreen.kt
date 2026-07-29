@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -330,6 +332,27 @@ fun PinEditScreen(
                 },
                 actions = {
                     if (!isCreate) {
+                        IconButton(onClick = {
+                            scope.launch {
+                                val cat = selectedCategory
+                                val templates = templateRepo.getFieldTemplatesByCategory(cat?.id ?: return@launch).first()
+                                val values = valueRepo.getFieldValuesByPin(pinId).first()
+                                val uri = com.sinus.pinmap.ui.utils.PinExporter.export(
+                                    context, if (cat != null) listOf(cat) else emptyList(),
+                                    templates, pinRepository.getPinById(pinId)?.let { listOf(it) } ?: emptyList(),
+                                    mapOf(pinId to values),
+                                    "export_pin_${title.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap"
+                                )
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "application/octet-stream"
+                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
+                            }
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = "导出标记")
+                        }
                         IconButton(onClick = { showDeleteConfirm = true }) {
                             Icon(Icons.Default.Delete, contentDescription = "删除标记")
                         }

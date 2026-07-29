@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
                         TabItem("地图", Icons.Default.LocationOn, Screen.Map.mRoute),
                         TabItem("标记列表", Icons.AutoMirrored.Filled.List, Screen.PinList.mRoute),
                         TabItem("分类管理", Icons.Default.Edit, Screen.CategoryList.mRoute),
-                        TabItem("设置", Icons.Default.Settings, Screen.Settings.mRoute, visible = false),
+                        TabItem("设置", Icons.Default.Settings, Screen.Settings.mRoute, visible = true),
                         TabItem("离线地图", Icons.Default.Info, Screen.OfflineMap.mRoute, visible = false)
                     )
                 }

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,12 +19,16 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.zIndex
-import com.sinus.pinmap.data.database.PinmapDatabase
-import com.sinus.pinmap.data.entity.FieldTemplate
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
-import kotlinx.coroutines.flow.first
+import com.sinus.pinmap.data.repository.PinRepository
+import com.sinus.pinmap.data.repository.CategoryRepository
+import com.sinus.pinmap.data.repository.FieldValueRepository
+import com.sinus.pinmap.data.database.PinmapDatabase
+import com.sinus.pinmap.ui.utils.PinExporter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import androidx.compose.ui.zIndex
+import com.sinus.pinmap.data.entity.FieldTemplate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +39,9 @@ fun FieldTemplatesScreen(
     val context = LocalContext.current
     val database = remember { PinmapDatabase.getDatabase(context) }
     val templateRepo = remember { FieldTemplateRepository(database.fieldTemplateStore()) }
+    val pinRepo = remember { PinRepository(database.pinStore()) }
+    val categoryRepo = remember { CategoryRepository(database.categoryStore()) }
+    val valueRepo = remember { FieldValueRepository(database.fieldValueStore()) }
     val scope = rememberCoroutineScope()
 
     var templates by remember { mutableStateOf<List<FieldTemplate>>(emptyList()) }
@@ -55,6 +63,28 @@ fun FieldTemplatesScreen(
                 title = { Text("字段模板") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        scope.launch {
+                            val cat = categoryRepo.getCategoryById(categoryId) ?: return@launch
+                            val templates = templateRepo.getFieldTemplatesByCategory(categoryId).first()
+                            val pins = pinRepo.getPinsByCategory(categoryId).first()
+                            val allValues = pins.associate { pin ->
+                                pin.id to valueRepo.getFieldValuesByPin(pin.id).first()
+                            }
+                            val uri = PinExporter.export(context, listOf(cat), templates, pins, allValues,
+                                "export_category_${cat.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap")
+                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "application/octet-stream"
+                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "导出本分类标记")
+                    }
                 }
             )
         }
