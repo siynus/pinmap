@@ -1,5 +1,6 @@
 package com.sinus.pinmap.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
@@ -52,6 +53,8 @@ fun FieldTemplatesScreen(
     var templateToEdit by remember { mutableStateOf<FieldTemplate?>(null) }
     var draggedId by remember { mutableStateOf<Long?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
+    var isExporting by remember { mutableStateOf(false) }
+    var exportProgress by remember { mutableStateOf(0f) }
 
     fun load() {
         scope.launch { templates = templateRepo.getFieldTemplatesByCategory(categoryId).first() }
@@ -67,22 +70,28 @@ fun FieldTemplatesScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
                 },
                 actions = {
-                    var exportProgress by remember { mutableStateOf(0f) }
                     IconButton(onClick = {
-                        scope.launch {
-                            val cat = categoryRepo.getCategoryById(categoryId) ?: return@launch
-                            withContext(Dispatchers.IO) {
-                                PinExporter.exportByCategory(context, database, categoryId,
-                                    onProgress = { done, total -> exportProgress = done.toFloat() / total },
-                                    fileName = "export_category_${cat.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap"
-                                )
-                            }.let { uri ->
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "application/octet-stream"
-                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
+                        if (!isExporting) {
+                            isExporting = true
+                            exportProgress = 0f
+                            scope.launch {
+                                try {
+                                    val cat = categoryRepo.getCategoryById(categoryId) ?: return@launch
+                                    withContext(Dispatchers.IO) {
+                                        PinExporter.exportByCategory(context, database, categoryId,
+                                            onProgress = { done, total -> exportProgress = done.toFloat() / total },
+                                            fileName = "export_category_${cat.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap"
+                                        )
+                                    }.let { uri ->
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                            type = "application/octet-stream"
+                                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
+                                    }
+                                } catch (_: Exception) { }
+                                isExporting = false
                             }
                         }
                     }) {
@@ -92,9 +101,10 @@ fun FieldTemplatesScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            if (templates.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (templates.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     Text("还没有字段模板", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
@@ -171,7 +181,29 @@ fun FieldTemplatesScreen(
                 Text("添加字段")
             }
         }
+
+        if (isExporting) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        "正在导出... (${(exportProgress * 100).toInt()}%)",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
     }
+}
 
     if (showAddDialog) {
         CreateFieldTemplateDialog(
