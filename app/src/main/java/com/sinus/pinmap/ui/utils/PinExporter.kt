@@ -8,6 +8,7 @@ import com.sinus.pinmap.data.entity.FieldTemplate
 import com.sinus.pinmap.data.entity.FieldType
 import com.sinus.pinmap.data.entity.FieldValue
 import com.sinus.pinmap.data.entity.Pin
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
