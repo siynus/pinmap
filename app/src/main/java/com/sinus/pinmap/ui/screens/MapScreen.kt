@@ -590,9 +590,11 @@ fun MapScreen(
         ) {
             SmallFloatingActionButton(
                 onClick = { showCategoryFilter = true },
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.size(30.dp)
             ) {
-                Icon(Icons.Default.Menu, contentDescription = "筛选分类")
+                Icon(Icons.Default.Menu, contentDescription = "筛选分类", modifier = Modifier.size(18.dp))
             }
             DropdownMenu(
                 expanded = showCategoryFilter,
@@ -666,10 +668,12 @@ fun MapScreen(
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = searchBottom + FAB_OFFSET),
+                .padding(end = 16.dp, bottom = searchBottom + FAB_OFFSET)
+                .size(30.dp),
+            shape = RoundedCornerShape(10.dp),
             containerColor = MaterialTheme.colorScheme.surface
         ) {
-            Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置")
+            Icon(Icons.Default.LocationOn, contentDescription = "定位到当前位置", modifier = Modifier.size(18.dp))
         }
 
         // 监听 pins 变化，更新地图标记
@@ -855,4 +859,4 @@ private val COLOR_WHITE_INT = 0xFFFFFFFF.toInt()
 private val HIGHLIGHT_RED = 0xFFFF4444.toInt()
 private val NAV_BAR_GAP = 80.dp
 private val FAB_OFFSET = 64.dp
-private val SEARCH_RESULT_MAX_HEIGHT = 300.dp
+private val SEARCH_RESULT_MAX_HEIGHT = 290.dp
