@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import com.sinus.pinmap.BuildConfig
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.ui.utils.AuthState
 import com.sinus.pinmap.ui.utils.PinExporter
@@ -30,7 +31,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val database = remember { PinmapDatabase.getDatabase(context) }
 
-    val currentKey = remember { AuthState.getSavedKey() ?: "" }
+    val currentKey = remember { AuthState.getSavedKey() ?: BuildConfig.MAPS_API_KEY }
     var isExporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableStateOf(0f) }
     var exportJob by remember { mutableStateOf<Job?>(null) }
@@ -54,7 +55,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     value = currentKey,
                     onValueChange = {},
                     label = { Text("API Key") },
-                    readOnly = true,
+                    enabled = false,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

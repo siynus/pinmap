@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
-                    gesturesEnabled = selectedTabIndex != TAB_MAP && isTabScreen,
+                    gesturesEnabled = false,
                     drawerContent = {
                         NavigationDrawer(
                             currentRoute = visibleTabs.getOrNull(selectedTabIndex)?.route ?: navRoute,
