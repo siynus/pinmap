@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -103,6 +104,8 @@ import androidx.core.net.toUri
 private val THUMBNAIL_SIZE = 120.dp
 private val POPUP_MAX_WIDTH = 180.dp
 private val AVATAR_SIZE = 64.dp
+private val AVATAR_BADGE_SIZE = 24.dp
+private val AVATAR_BADGE_ICON_SIZE = 14.dp
 private val ICON_SIZE_48 = 48.dp
 private val ICON_SIZE_32 = 32.dp
 private val DELETE_BUTTON_SIZE = 24.dp
@@ -152,6 +155,7 @@ fun PinEditScreen(
     var avatarPath by remember { mutableStateOf<String?>(null) }
     var editingAvatar by remember { mutableStateOf<String?>(null) }
     var avatarDeleted by remember { mutableStateOf(false) }
+    var viewingAvatar by remember { mutableStateOf(false) }
     var address by remember { mutableStateOf("") }
     var pinLat by remember { mutableDoubleStateOf(lat) }
     var pinLng by remember { mutableDoubleStateOf(lng) }
@@ -369,13 +373,43 @@ fun PinEditScreen(
                 item {
                     val avatarUri = editingAvatar ?: avatarPath
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.size(AVATAR_SIZE).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable {
-                            pendingImageTemplateId = -1L; imagePickerLauncher.launch("image/*")
-                        }, contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier.size(AVATAR_SIZE),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(AVATAR_SIZE)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable(enabled = avatarUri != null) { viewingAvatar = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (avatarUri != null) {
+                                    Image(painter = coil.compose.rememberAsyncImagePainter(avatarUri), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                } else {
+                                    Icon(Icons.Default.Person, contentDescription = "设置头像", modifier = Modifier.size(ICON_SIZE_32), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                             if (avatarUri != null) {
-                                Image(painter = coil.compose.rememberAsyncImagePainter(avatarUri), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            } else {
-                                Icon(Icons.Default.Person, contentDescription = "设置头像", modifier = Modifier.size(ICON_SIZE_32), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(AVATAR_BADGE_SIZE)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                        .clickable {
+                                            pendingImageTemplateId = -1L; imagePickerLauncher.launch("image/*")
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "更换头像",
+                                        modifier = Modifier.size(AVATAR_BADGE_ICON_SIZE),
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
                             }
                         }
                         if (avatarUri != null) {
@@ -887,6 +921,32 @@ fun PinEditScreen(
                         },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
                     ) { Text("复制地址") }
+                }
+            }
+        }
+    }
+
+    if (viewingAvatar) {
+        val avatarUri = editingAvatar ?: avatarPath
+        Dialog(
+            onDismissRequest = { viewingAvatar = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .clickable { viewingAvatar = false }
+            ) {
+                if (avatarUri != null) {
+                    Image(
+                        painter = coil.compose.rememberAsyncImagePainter(avatarUri),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        contentScale = ContentScale.Fit
+                    )
                 }
             }
         }
