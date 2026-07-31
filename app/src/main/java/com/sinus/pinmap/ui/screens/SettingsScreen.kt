@@ -23,7 +23,6 @@ import com.sinus.pinmap.ui.utils.PinExporter
 import com.sinus.pinmap.ui.utils.PinImporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -48,7 +47,9 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
     LaunchedEffect(Unit) {
         val pinRepo = PinRepository(database.pinStore())
-        hasData = pinRepo.getAllPins().first().isNotEmpty()
+        pinRepo.getAllPins().collect { pinList ->
+            hasData = pinList.isNotEmpty()
+        }
     }
 
     val importPicker = rememberLauncherForActivityResult(

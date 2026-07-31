@@ -60,6 +60,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.core.net.toUri
 import androidx.core.graphics.createBitmap
@@ -444,12 +445,13 @@ fun MapScreen(
                                             text = pin.title,
                                             style = MaterialTheme.typography.titleMedium
                                         )
-                                        pin.description?.let {
+                                        pin.address?.let {
                                             Text(
                                                 text = it,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }

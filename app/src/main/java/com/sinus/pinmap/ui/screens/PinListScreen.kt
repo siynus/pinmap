@@ -320,14 +320,6 @@ private fun PinItem(
                                     color = DISTANCE_GREEN
                         )
                     }
-                    pin.description?.let { description ->
-                        Text(
-                            text = description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
                     pin.address?.let {
                         Text(
                             text = it,
