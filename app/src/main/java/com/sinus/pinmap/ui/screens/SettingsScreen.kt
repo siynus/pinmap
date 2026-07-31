@@ -1,22 +1,26 @@
 package com.sinus.pinmap.ui.screens
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import com.sinus.pinmap.BuildConfig
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.AuthState
 import com.sinus.pinmap.ui.utils.PinExporter
+import com.sinus.pinmap.ui.utils.PinImporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -34,14 +38,35 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     val database = remember { PinmapDatabase.getDatabase(context) }
 
     val currentKey = remember { AuthState.getSavedKey() ?: BuildConfig.MAPS_API_KEY }
-    var isExporting by remember { mutableStateOf(false) }
-    var exportProgress by remember { mutableStateOf(0f) }
-    var exportJob by remember { mutableStateOf<Job?>(null) }
+    var isBusy by remember { mutableStateOf(false) }
+    var busyLabel by remember { mutableStateOf("") }
+    var busyProgress by remember { mutableStateOf(0f) }
+    var busyJob by remember { mutableStateOf<Job?>(null) }
     var hasData by remember { mutableStateOf(false) }
+    var importPreview by remember { mutableStateOf<PinImporter.ImportPreview?>(null) }
+    var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(Unit) {
         val pinRepo = PinRepository(database.pinStore())
         hasData = pinRepo.getAllPins().first().isNotEmpty()
+    }
+
+    val importPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            scope.launch {
+                try {
+                    val preview = withContext(Dispatchers.IO) {
+                        PinImporter.preview(context, selectedUri)
+                    }
+                    pendingImportUri = selectedUri
+                    importPreview = preview
+                } catch (e: Exception) {
+                    Toast.makeText(context, "文件无效或解析失败", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -83,15 +108,16 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Box {
                 Button(
                     onClick = {
-                        if (!isExporting) {
-                            isExporting = true
-                            exportProgress = 0f
-                            exportJob = scope.launch {
+                        if (!isBusy) {
+                            isBusy = true
+                            busyLabel = "正在导出"
+                            busyProgress = 0f
+                            busyJob = scope.launch {
                                 try {
                                     val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                                     val uri = withContext(Dispatchers.IO) {
                                         PinExporter.exportAll(context, database,
-                                            onProgress = { done, total -> exportProgress = done.toFloat() / total },
+                                            onProgress = { done, total -> busyProgress = done.toFloat() / total },
                                             fileName = "export_$dateStr.pinmap"
                                         )
                                     }
@@ -102,11 +128,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                     }
                                     context.startActivity(android.content.Intent.createChooser(intent, "导出全部标记"))
                                 } catch (_: Exception) { }
-                                isExporting = false
+                                isBusy = false
                             }
                         }
                     },
-                    enabled = !isExporting && hasData,
+                    enabled = !isBusy && hasData,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("导出全部标记") }
                 if (!hasData) {
@@ -119,9 +145,15 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     )
                 }
             }
+
+            Button(
+                onClick = { importPicker.launch("*/*") },
+                enabled = !isBusy,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("导入数据") }
         }
 
-        if (isExporting) {
+        if (isBusy) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -136,12 +168,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        "正在导出... (${(exportProgress * 100).toInt()}%)",
+                        "$busyLabel... (${(busyProgress * 100).toInt()}%)",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(
-                        onClick = { exportJob?.cancel(); isExporting = false },
+                        onClick = { busyJob?.cancel(); isBusy = false },
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "取消", modifier = Modifier.size(18.dp))
@@ -149,5 +181,55 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+
+    importPreview?.let { preview ->
+        AlertDialog(
+            onDismissRequest = {
+                importPreview = null
+                pendingImportUri = null
+            },
+            title = { Text("确认导入") },
+            text = { Text("将导入 ${preview.categoryCount} 个分类、${preview.templateCount} 个字段、${preview.pinCount} 个标记。") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val uri = pendingImportUri ?: run {
+                            importPreview = null
+                            return@Button
+                        }
+                        importPreview = null
+                        pendingImportUri = null
+                        isBusy = true
+                        busyLabel = "正在导入"
+                        busyProgress = 0f
+                        busyJob = scope.launch {
+                            try {
+                                val result = withContext(Dispatchers.IO) {
+                                    PinImporter.import(context, database, uri,
+                                        onProgress = { done, total -> busyProgress = done.toFloat() / total })
+                                }
+                                Toast.makeText(
+                                    context,
+                                    "导入完成：${result.categoryCount} 分类、${result.templateCount} 字段、${result.pinCount} 标记、${result.mediaCount} 媒体",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "导入失败：${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                            isBusy = false
+                        }
+                    }
+                ) { Text("导入") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        importPreview = null
+                        pendingImportUri = null
+                    }
+                ) { Text("取消") }
+            }
+        )
     }
 }

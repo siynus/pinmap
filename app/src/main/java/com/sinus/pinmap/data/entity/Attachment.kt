@@ -4,8 +4,9 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * 附件实体类
+ * 附件实体类（已弃用：媒体改用 IMAGE/VIDEO 字段，本表不再使用）
  */
+@Deprecated("附件表已弃用，媒体改用 IMAGE/VIDEO 字段", ReplaceWith("FieldValue"))
 @Entity(tableName = "attachments")
 data class Attachment(
     @PrimaryKey(autoGenerate = true)

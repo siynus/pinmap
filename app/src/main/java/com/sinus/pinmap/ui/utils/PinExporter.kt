@@ -171,7 +171,7 @@ object PinExporter {
         }
 
         val root = JSONObject().apply {
-            put("version", 1)
+            put("version", 2)
             put("exportedAt", System.currentTimeMillis())
             val catsArray = JSONArray()
             categories.map { cat ->
@@ -184,6 +184,7 @@ object PinExporter {
                     val ftArray = JSONArray()
                     fieldTemplates.filter { it.categoryId == cat.id }.forEach { ft ->
                         ftArray.put(JSONObject().apply {
+                            put("id", ft.id)
                             put("fieldName", ft.fieldName)
                             put("fieldType", ft.fieldType.name)
                             put("sortOrder", ft.sortOrder)
