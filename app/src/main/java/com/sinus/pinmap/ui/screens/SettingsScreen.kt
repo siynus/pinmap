@@ -10,10 +10,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.ui.utils.AuthState
 import com.sinus.pinmap.ui.utils.PinExporter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -30,6 +33,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     val currentKey = remember { AuthState.getSavedKey() ?: "" }
     var isExporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableStateOf(0f) }
+    var exportJob by remember { mutableStateOf<Job?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -72,7 +76,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     if (!isExporting) {
                         isExporting = true
                         exportProgress = 0f
-                        scope.launch {
+                        exportJob = scope.launch {
                             try {
                                 val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                                 val uri = withContext(Dispatchers.IO) {
@@ -103,17 +107,25 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp
                     )
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         "正在导出... (${(exportProgress * 100).toInt()}%)",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
                     )
+                    IconButton(
+                        onClick = { exportJob?.cancel(); isExporting = false },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "取消", modifier = Modifier.size(18.dp))
+                    }
                 }
             }
         }
