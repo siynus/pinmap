@@ -23,6 +23,7 @@ import java.util.zip.ZipInputStream
 object PinImporter {
 
     private const val TAG = "PinImporter"
+    private const val COPY_BUFFER_SIZE = 64 * 1024
 
     data class ImportPreview(
         val categoryCount: Int,
@@ -401,7 +402,7 @@ object PinImporter {
                         }
                         usedNames.add(fileName)
                         val dest = File(targetDir, fileName)
-                        FileOutputStream(dest).use { out -> zis.copyTo(out) }
+                        FileOutputStream(dest).use { out -> zis.copyTo(out, COPY_BUFFER_SIZE) }
                         result[entryName] = Uri.fromFile(dest).toString()
                         Log.d(TAG, "extracted: $entryName -> $dest")
                         onProgress()

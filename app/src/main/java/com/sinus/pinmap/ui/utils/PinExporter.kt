@@ -12,11 +12,20 @@ import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 object PinExporter {
 
+    private const val COPY_BUFFER_SIZE = 64 * 1024
+    private val COMPRESSED_EXTENSIONS = setOf(
+        "jpg", "jpeg", "png", "gif", "webp", "mp4", "mov", "m4v",
+        "3gp", "avi", "mkv", "webm", "mp3", "aac", "m4a", "flac", "ogg", "opus"
+    )
+
+    private fun File.isCompressedFormat(): Boolean =
+        extension.lowercase() in COMPRESSED_EXTENSIONS
     suspend fun exportAll(
         context: Context,
         database: PinmapDatabase,
@@ -215,9 +224,15 @@ object PinExporter {
             fileRefs.forEach { (sourcePath, entryName) ->
                 val file = File(sourcePath)
                 if (file.exists()) {
+                    if (file.isCompressedFormat()) {
+                        zos.setLevel(Deflater.NO_COMPRESSION)
+                    }
                     zos.putNextEntry(ZipEntry(entryName))
-                    file.inputStream().use { it.copyTo(zos) }
+                    file.inputStream().use { it.copyTo(zos, COPY_BUFFER_SIZE) }
                     zos.closeEntry()
+                    if (file.isCompressedFormat()) {
+                        zos.setLevel(Deflater.DEFAULT_COMPRESSION)
+                    }
                 }
                 done++
                 onProgress(done, total)
