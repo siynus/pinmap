@@ -1,6 +1,7 @@
 package com.sinus.pinmap.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -8,6 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -256,7 +259,7 @@ fun PinListScreen(
 }
 
 private val FILTER_CHIP_HEIGHT = 36.dp
-private val PIN_AVATAR_SIZE = 40.dp
+private val PIN_AVATAR_SIZE = 48.dp
 private val DISTANCE_GREEN = Color(0xFF4CAF50)
 
 @Composable
@@ -284,7 +287,18 @@ private fun PinItem(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                if (category != null) {
+                if (pin.avatarPath != null) {
+                    Image(
+                        painter = coil.compose.rememberAsyncImagePainter(
+                            if (pin.avatarPath.startsWith("/")) pin.avatarPath else "file://${pin.avatarPath}"
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(PIN_AVATAR_SIZE)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else if (category != null) {
                     Box(
                         modifier = Modifier
                             .size(PIN_AVATAR_SIZE)
