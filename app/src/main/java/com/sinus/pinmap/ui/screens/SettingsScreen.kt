@@ -14,10 +14,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import com.sinus.pinmap.BuildConfig
 import com.sinus.pinmap.data.database.PinmapDatabase
+import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.AuthState
 import com.sinus.pinmap.ui.utils.PinExporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -35,6 +37,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var isExporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableStateOf(0f) }
     var exportJob by remember { mutableStateOf<Job?>(null) }
+    var hasData by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val pinRepo = PinRepository(database.pinStore())
+        hasData = pinRepo.getAllPins().first().isNotEmpty()
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -72,34 +80,45 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
             Text("数据管理", style = MaterialTheme.typography.titleLarge)
 
-            Button(
-                onClick = {
-                    if (!isExporting) {
-                        isExporting = true
-                        exportProgress = 0f
-                        exportJob = scope.launch {
-                            try {
-                                val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                                val uri = withContext(Dispatchers.IO) {
-                                    PinExporter.exportAll(context, database,
-                                        onProgress = { done, total -> exportProgress = done.toFloat() / total },
-                                        fileName = "export_$dateStr.pinmap"
-                                    )
-                                }
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "application/octet-stream"
-                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(android.content.Intent.createChooser(intent, "导出全部标记"))
-                            } catch (_: Exception) { }
-                            isExporting = false
+            Box {
+                Button(
+                    onClick = {
+                        if (!isExporting) {
+                            isExporting = true
+                            exportProgress = 0f
+                            exportJob = scope.launch {
+                                try {
+                                    val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                                    val uri = withContext(Dispatchers.IO) {
+                                        PinExporter.exportAll(context, database,
+                                            onProgress = { done, total -> exportProgress = done.toFloat() / total },
+                                            fileName = "export_$dateStr.pinmap"
+                                        )
+                                    }
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "application/octet-stream"
+                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(intent, "导出全部标记"))
+                                } catch (_: Exception) { }
+                                isExporting = false
+                            }
                         }
-                    }
-                },
-                enabled = !isExporting,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("导出全部标记") }
+                    },
+                    enabled = !isExporting && hasData,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("导出全部标记") }
+                if (!hasData) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable {
+                                Toast.makeText(context, "暂无可导出的数据", Toast.LENGTH_SHORT).show()
+                            }
+                    )
+                }
+            }
         }
 
         if (isExporting) {

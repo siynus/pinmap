@@ -1,5 +1,6 @@
 package com.sinus.pinmap.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -57,9 +58,13 @@ fun FieldTemplatesScreen(
     var isExporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableStateOf(0f) }
     var exportJob by remember { mutableStateOf<Job?>(null) }
+    var hasPins by remember { mutableStateOf(false) }
 
     fun load() {
-        scope.launch { templates = templateRepo.getFieldTemplatesByCategory(categoryId).first() }
+        scope.launch {
+            templates = templateRepo.getFieldTemplatesByCategory(categoryId).first()
+            hasPins = pinRepo.getPinsByCategory(categoryId).first().isNotEmpty()
+        }
     }
 
     LaunchedEffect(categoryId) { load() }
@@ -72,32 +77,42 @@ fun FieldTemplatesScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        if (!isExporting) {
-                            isExporting = true
-                            exportProgress = 0f
-                            exportJob = scope.launch {
-                                try {
-                                    val cat = categoryRepo.getCategoryById(categoryId) ?: return@launch
-                                    withContext(Dispatchers.IO) {
-                                        PinExporter.exportByCategory(context, database, categoryId,
-                                            onProgress = { done, total -> exportProgress = done.toFloat() / total },
-                                            fileName = "export_category_${cat.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap"
-                                        )
-                                    }.let { uri ->
-                                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                            type = "application/octet-stream"
-                                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    IconButton(
+                        onClick = {
+                            if (!hasPins) {
+                                Toast.makeText(context, "该分类下暂无可导出的标记", Toast.LENGTH_SHORT).show()
+                                return@IconButton
+                            }
+                            if (!isExporting) {
+                                isExporting = true
+                                exportProgress = 0f
+                                exportJob = scope.launch {
+                                    try {
+                                        val cat = categoryRepo.getCategoryById(categoryId) ?: return@launch
+                                        withContext(Dispatchers.IO) {
+                                            PinExporter.exportByCategory(context, database, categoryId,
+                                                onProgress = { done, total -> exportProgress = done.toFloat() / total },
+                                                fileName = "export_category_${cat.name.replace(Regex("[\\\\/:*?\"<>|]"), "_")}.pinmap"
+                                            )
+                                        }.let { uri ->
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                                type = "application/octet-stream"
+                                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            }
+                                            context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
                                         }
-                                        context.startActivity(android.content.Intent.createChooser(intent, "导出标记"))
-                                    }
-                                } catch (_: Exception) { }
-                                isExporting = false
+                                    } catch (_: Exception) { }
+                                    isExporting = false
+                                }
                             }
                         }
-                    }) {
-                        Icon(Icons.Default.Share, contentDescription = "导出本分类标记")
+                    ) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = "导出本分类标记",
+                            tint = if (hasPins) LocalContentColor.current else MaterialTheme.colorScheme.outline
+                        )
                     }
                 }
             )
