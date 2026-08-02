@@ -200,7 +200,7 @@ fun CategoryListScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteCategory(category)
+                        viewModel.deleteCategory(category, context.applicationContext)
                         categoryToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)

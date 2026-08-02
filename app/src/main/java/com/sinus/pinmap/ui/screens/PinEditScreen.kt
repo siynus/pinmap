@@ -99,6 +99,7 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
 import androidx.core.net.toUri
+import com.sinus.pinmap.ui.utils.MediaFileHelper
 
 
 private val THUMBNAIL_SIZE = 120.dp
@@ -647,24 +648,23 @@ fun PinEditScreen(
                         hasChanges = false
                         scope.launch {
                             val categoryId = selectedCategory?.id ?: return@launch
-                            val id = when {
-                                pinId == 0L -> {
                             val finalAvatar = when {
                                 avatarDeleted -> null
                                 editingAvatar != null -> editingAvatar
                                 else -> avatarPath
                             }
-                            val newId = pinRepository.insertPin(Pin(latitude = pinLat, longitude = pinLng, title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
+                            val oldMediaRefs = buildList {
+                                avatarPath?.let { add(it) }
+                                fieldValues.values.flatten().forEach { add(it.value ?: "") }
+                            }
+                            val id = when {
+                                pinId == 0L -> {
+                                    val newId = pinRepository.insertPin(Pin(latitude = pinLat, longitude = pinLng, title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
                                     pinId = newId
                                     newId
                                 }
                                 else -> {
                                     pinRepository.getPinById(pinId)?.let { pin ->
-                                        val finalAvatar = when {
-                                            avatarDeleted -> null
-                                            editingAvatar != null -> editingAvatar
-                                            else -> avatarPath
-                                        }
                                         pinRepository.updatePin(pin.copy(latitude = pinLat, longitude = pinLng, title = title, categoryId = categoryId, avatarPath = finalAvatar, address = address.ifEmpty { null }))
                                     }
                                     pinId
@@ -696,6 +696,16 @@ fun PinEditScreen(
                                         valueRepo.insertFieldValue(FieldValue(pinId = id, fieldTemplateId = template.id, value = v))
                                     }
                                 }
+                            }
+                        }
+                        val newMediaRefs = buildList {
+                            finalAvatar?.let { add(it) }
+                            valueRepo.getFieldValuesByPin(id).first().forEach { add(it.value ?: "") }
+                        }
+                        val toDelete = oldMediaRefs.filterNot { it in newMediaRefs }
+                        if (toDelete.isNotEmpty()) {
+                            withContext(Dispatchers.IO) {
+                                MediaFileHelper.deleteFiles(context, toDelete)
                             }
                         }
                         hasChanges = false
@@ -748,7 +758,16 @@ fun PinEditScreen(
                     onClick = {
                         showDeleteConfirm = false
                         scope.launch {
+                            val refs = buildList {
+                                avatarPath?.let { add(it) }
+                                valueRepo.getFieldValuesByPin(pinId).first().forEach { add(it.value ?: "") }
+                            }
                             pinRepository.deletePinById(pinId)
+                            if (refs.isNotEmpty()) {
+                                withContext(Dispatchers.IO) {
+                                    MediaFileHelper.deleteFiles(context, refs)
+                                }
+                            }
                             onBack(pinLat, pinLng)
                         }
                     },

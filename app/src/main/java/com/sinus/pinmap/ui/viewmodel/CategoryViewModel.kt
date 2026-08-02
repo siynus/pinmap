@@ -9,6 +9,7 @@ import com.sinus.pinmap.data.repository.CategoryRepository
 import com.sinus.pinmap.data.repository.FieldTemplateRepository
 import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
+import com.sinus.pinmap.ui.utils.MediaFileHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,11 +50,16 @@ class CategoryViewModel(
         }
     }
 
-    fun deleteCategory(category: Category) {
+    fun deleteCategory(category: Category, context: android.content.Context) {
         viewModelScope.launch {
-            mDatabase.withTransaction {
+            val refs = mDatabase.withTransaction {
                 val pins = mPinRepository.getPinsByCategory(category.id).first()
+                val allRefs = mutableListOf<String>()
                 pins.forEach { pin ->
+                    pin.avatarPath?.let { allRefs.add(it) }
+                    mValueRepository.getFieldValuesByPin(pin.id).first().forEach { fv ->
+                        fv.value?.let { allRefs.add(it) }
+                    }
                     mValueRepository.deleteFieldValuesByPin(pin.id)
                     mPinRepository.deletePinById(pin.id)
                 }
@@ -63,6 +69,12 @@ class CategoryViewModel(
                     mTemplateRepository.deleteFieldTemplateById(template.id)
                 }
                 mCategoryRepository.deleteCategory(category)
+                allRefs
+            }
+            if (refs.isNotEmpty()) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    MediaFileHelper.deleteFiles(context, refs)
+                }
             }
         }
     }

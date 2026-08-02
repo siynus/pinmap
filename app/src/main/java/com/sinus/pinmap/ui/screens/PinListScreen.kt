@@ -28,11 +28,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.entity.Pin
 import com.sinus.pinmap.data.repository.CategoryRepository
+import com.sinus.pinmap.data.repository.FieldValueRepository
 import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.LocationManager
+import com.sinus.pinmap.ui.utils.MediaFileHelper
 import com.sinus.pinmap.ui.utils.haversineDistance
 import com.sinus.pinmap.ui.viewmodel.PinListViewModel
 import com.sinus.pinmap.ui.viewmodel.SortMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +50,9 @@ fun PinListScreen(
     val database = remember { PinmapDatabase.getDatabase(context) }
     val pinRepository = remember { PinRepository(database.pinStore()) }
     val categoryRepository = remember { CategoryRepository(database.categoryStore()) }
+    val valueRepository = remember { FieldValueRepository(database.fieldValueStore()) }
     val viewModel: PinListViewModel = viewModel { PinListViewModel(pinRepository, categoryRepository) }
+    val scope = rememberCoroutineScope()
 
     val pins by viewModel.filteredPins.collectAsState()
     val categories by viewModel._categories.collectAsState()
@@ -239,6 +247,17 @@ fun PinListScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        scope.launch {
+                            val refs = buildList {
+                                pin.avatarPath?.let { add(it) }
+                                valueRepository.getFieldValuesByPin(pin.id).first().forEach { add(it.value ?: "") }
+                            }
+                            if (refs.isNotEmpty()) {
+                                withContext(Dispatchers.IO) {
+                                    MediaFileHelper.deleteFiles(context, refs)
+                                }
+                            }
+                        }
                         viewModel.deletePin(pin)
                         showDeleteDialog = null
                     },
