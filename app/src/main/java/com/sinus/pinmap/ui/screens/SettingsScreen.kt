@@ -19,6 +19,7 @@ import com.sinus.pinmap.BuildConfig
 import com.sinus.pinmap.data.database.PinmapDatabase
 import com.sinus.pinmap.data.repository.PinRepository
 import com.sinus.pinmap.ui.utils.AuthState
+import com.sinus.pinmap.ui.utils.OrphanFileCleaner
 import com.sinus.pinmap.ui.utils.PinExporter
 import com.sinus.pinmap.ui.utils.PinImporter
 import kotlinx.coroutines.Dispatchers
@@ -152,6 +153,33 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 enabled = !isBusy,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("导入数据") }
+
+            Button(
+                onClick = {
+                    if (!isBusy) {
+                        isBusy = true
+                        busyLabel = "正在清理"
+                        busyProgress = 0f
+                        busyJob = scope.launch {
+                            try {
+                                val deleted = withContext(Dispatchers.IO) {
+                                    OrphanFileCleaner.clean(context, database)
+                                }
+                                Toast.makeText(
+                                    context,
+                                    if (deleted > 0) "已清理 $deleted 个孤儿文件" else "没有需要清理的孤儿文件",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "清理失败：${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                            isBusy = false
+                        }
+                    }
+                },
+                enabled = !isBusy,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("清理孤儿文件") }
         }
 
         if (isBusy) {
