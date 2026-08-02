@@ -170,6 +170,8 @@ fun MapScreen(
     var markerMap by remember { mutableStateOf<Map<Long, Marker>>(emptyMap()) }
     var viewerPin by remember { mutableStateOf<Pin?>(null) }
     var highlightedPinId by remember { mutableStateOf<Long?>(null) }
+    var previousHighlightedPinId by remember { mutableStateOf<Long?>(null) }
+    var renderedPins by remember { mutableStateOf<Map<Long, Pin>>(emptyMap()) }
     var poiHighlightLat by remember { mutableDoubleStateOf(0.0) }
     var poiHighlightLng by remember { mutableDoubleStateOf(0.0) }
     var isDragging by remember { mutableStateOf(false) }
@@ -692,13 +694,18 @@ fun MapScreen(
             oldIds.subtract(currentIds).forEach { id ->
                 markerMap[id]?.remove()
             }
-
             // 添加新标记，高亮变化时重建所有（无 aMap.clear 不闪）
             val newMap = markerMap.toMutableMap()
             filteredPins.forEach { pin ->
                 val oldMarker = markerMap[pin.id]
-                if (oldMarker != null && highlightedPinId != pin.id && oldMarker.position == LatLng(pin.latitude, pin.longitude)) {
-                    // 标记未变化且不是高亮目标，跳过
+                val prevPin = renderedPins[pin.id]
+                val pinChanged = prevPin == null || pin.title != prevPin.title ||
+                    pin.avatarPath != prevPin.avatarPath ||
+                    pin.categoryId != prevPin.categoryId ||
+                    pin.latitude != prevPin.latitude ||
+                    pin.longitude != prevPin.longitude
+                if (oldMarker != null && !pinChanged && highlightedPinId != pin.id && previousHighlightedPinId != pin.id) {
+                    // 标记未变化，跳过
                     newMap[pin.id] = oldMarker
                 } else {
                     // 需要创建新标记或更新旧标记
@@ -802,6 +809,8 @@ fun MapScreen(
                 }
             }
             markerMap = newMap
+            renderedPins = filteredPins.associateBy { it.id }
+            previousHighlightedPinId = highlightedPinId
         }
     }
 

@@ -371,7 +371,7 @@ fun PinEditScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    val avatarUri = editingAvatar ?: avatarPath
+                    val avatarUri = if (avatarDeleted) null else (editingAvatar ?: avatarPath)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(
                             modifier = Modifier.size(AVATAR_SIZE),
@@ -382,7 +382,13 @@ fun PinEditScreen(
                                     .size(AVATAR_SIZE)
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable(enabled = avatarUri != null) { viewingAvatar = true },
+                                    .clickable {
+                                        if (avatarUri != null) {
+                                            viewingAvatar = true
+                                        } else {
+                                            pendingImageTemplateId = -1L; imagePickerLauncher.launch("image/*")
+                                        }
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (avatarUri != null) {
@@ -927,7 +933,7 @@ fun PinEditScreen(
     }
 
     if (viewingAvatar) {
-        val avatarUri = editingAvatar ?: avatarPath
+        val avatarUri = if (avatarDeleted) null else (editingAvatar ?: avatarPath)
         Dialog(
             onDismissRequest = { viewingAvatar = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)
