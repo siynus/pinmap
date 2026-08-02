@@ -37,7 +37,7 @@ object OrphanFileCleaner {
         for (dir in dirs) {
             if (!dir.exists()) continue
             dir.listFiles()?.forEach { file ->
-                if (file.isFile && file.canonicalPath !in referenced) {
+                if (file.isFile && file.path !in referenced) {
                     if (file.delete()) {
                         deleted++
                     }
