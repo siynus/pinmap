@@ -283,6 +283,7 @@ fun PinEditScreen(
                         }
                         val uriStr = Uri.fromFile(destFile).toString()
                         if (tid == -1L) {
+                            avatarDeleted = false
                             editingAvatar = uriStr; markDirty()
                         } else {
                             val existing = fieldValues[tid]?.map { it.value ?: "" } ?: emptyList()
